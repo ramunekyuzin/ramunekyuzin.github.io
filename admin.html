@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>店舗管理｜ラムネ</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2FAFD;
+    --ink: #1F3540;
+    --sub: #6A8A99;
+    --primary: #2E9CD4;
+    --primary-soft: #DFF2FB;
+    --deep: #175A80;
+    --gold: #B8862B;
+    --ng: #C0392B;
+    --ok: #1A8A3C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Noto Sans JP', -apple-system, "Hiragino Sans", sans-serif;
+    background: var(--bg); color: var(--ink);
+    line-height: 1.7; font-size: 15px;
+    max-width: 560px; margin: 0 auto; padding: 16px;
+  }
+  h1 { font-family: 'Zen Maru Gothic', sans-serif; font-weight: 900; font-size: 22px; color: var(--deep); margin-bottom: 4px; }
+  .sub { font-size: 12px; color: var(--sub); margin-bottom: 16px; }
+  .card {
+    background: #fff; border-radius: 16px; padding: 18px 16px;
+    margin-bottom: 14px; box-shadow: 0 2px 10px rgba(23,90,128,.08);
+  }
+  .card h2 { font-size: 13px; font-weight: 700; color: var(--primary); letter-spacing: .1em; margin-bottom: 10px; }
+  label { display: block; font-size: 13px; color: var(--sub); margin-bottom: 4px; }
+  input, textarea {
+    width: 100%; padding: 13px; font-size: 16px; /* 16px以上でiOSのズーム暴発を防ぐ */
+    border: 1.5px solid #C3E2F2; border-radius: 10px; margin-bottom: 12px;
+    font-family: inherit; background: #fff; color: var(--ink);
+  }
+  input:focus, textarea:focus { outline: 2px solid var(--primary); border-color: var(--primary); }
+  button {
+    width: 100%; padding: 15px; font-size: 16px; font-weight: 700;
+    border: none; border-radius: 12px; background: var(--primary); color: #fff; cursor: pointer;
+  }
+  button:active { opacity: .85; }
+  button:disabled { background: #A9C6D6; }
+  .btn-sub { background: #fff; color: var(--sub); border: 1.5px solid #C3E2F2; margin-top: 8px; }
+  #status { text-align: center; font-size: 14px; margin-top: 10px; min-height: 22px; }
+  .ok { color: var(--ok); } .ng { color: var(--ng); }
+  .hidden { display: none; }
+  /* 実績カード */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stat {
+    background: var(--primary-soft); border-radius: 12px; padding: 10px 6px; text-align: center;
+  }
+  .stat .num { font-family: 'Zen Maru Gothic', sans-serif; font-weight: 900; font-size: 22px; color: var(--deep); }
+  .stat .lbl { font-size: 11px; color: var(--sub); }
+  .stat.gold { background: #FBF0D8; }
+  .stat.gold .num { color: var(--gold); }
+  .stats-note { font-size: 11px; color: var(--sub); margin-top: 8px; }
+  .store-badge {
+    display: inline-block; background: var(--deep); color: #fff; font-size: 12px; font-weight: 700;
+    border-radius: 999px; padding: 3px 12px; margin-bottom: 12px;
+  }
+  /* こだわり条件チップ */
+  .feat-note { font-size: 12px; color: var(--sub); margin-bottom: 8px; }
+  .feat-group-label { font-size: 11px; font-weight: 700; color: var(--sub); letter-spacing: .08em; margin: 4px 2px 6px; }
+  .feat-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+  .feat-chips .chip {
+    width: auto; flex: 0 0 auto; font-size: 12.5px; font-weight: 500;
+    padding: 8px 12px; border-radius: 999px; border: 1.5px solid #C3E2F2;
+    background: #fff; color: var(--sub); cursor: pointer; font-family: inherit;
+  }
+  .feat-chips .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+  .feat-selected { font-size: 12px; color: var(--deep); background: var(--primary-soft); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<h1>ラムネ 店舗管理</h1>
+<div class="sub">掲載内容の編集とアクセス実績の確認ができます</div>
+
+<!-- ログイン画面 -->
+<div id="loginView">
+  <div class="card">
+    <h2>ログイン</h2>
+    <label>店舗ID</label>
+    <input id="loginId" placeholder="例: S001" autocomplete="username">
+    <label>パスワード</label>
+    <input id="loginPw" type="password" autocomplete="current-password">
+    <button id="loginBtn" onclick="doLogin()">ログインする</button>
+    <div id="status"></div>
+  </div>
+  <div class="card" style="font-size:12.5px;color:var(--sub);">
+    パスワードが分からない場合は、ラムネ運営までご連絡ください。
+  </div>
+</div>
+
+<!-- 管理画面 -->
+<div id="adminView" class="hidden">
+  <span class="store-badge" id="storeBadge"></span>
+
+  <div class="card">
+    <h2>アクセス実績</h2>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:6px;" id="monthLabel"></div>
+    <div class="stats" id="monthStats"></div>
+    <div style="font-size:12px;color:var(--sub);margin:10px 0 6px;">累計</div>
+    <div class="stats" id="totalStats"></div>
+    <div class="stats-note">「応募」はLINE・電話ボタンのタップ数、「気になる」はお気に入り登録数です</div>
+  </div>
+
+  <div class="card">
+    <h2>こだわり条件(検索で使われます)</h2>
+    <div class="feat-note">当てはまるものをタップしてください。<strong>求職者はこの条件で検索して絞り込む</strong>ので、多く設定するほど「求める人材」に見つけてもらいやすくなります。</div>
+    <div id="featArea"></div>
+    <div class="feat-selected" id="featSelected">選択中: なし</div>
+  </div>
+
+  <div class="card">
+    <h2>掲載内容の編集</h2>
+    <label>キャッチコピー</label>
+    <input id="f_catch">
+    <label>給与</label>
+    <input id="f_salary" placeholder="例: 日給35,000円〜">
+    <label>勤務時間</label>
+    <input id="f_hours">
+    <label>待遇(「/」区切りで入力)</label>
+    <textarea id="f_benefits" rows="2" placeholder="日払いOK / 送迎あり / 個室待機"></textarea>
+    <label>応募条件</label>
+    <input id="f_requirements">
+    <label>紹介文</label>
+    <textarea id="f_description" rows="4"></textarea>
+    <label>応募用LINE URL</label>
+    <input id="f_line" placeholder="https://line.me/R/ti/p/@...">
+    <label>電話番号</label>
+    <input id="f_tel" placeholder="0431234567">
+    <label>応募メッセージのテンプレ(応募者がコピーしてLINEで送る文。空欄ならラムネ標準の文が出ます)</label>
+    <textarea id="f_template" rows="4" placeholder="はじめまして！ラムネを見て応募しました。&#10;お名前：&#10;年齢：&#10;希望日時："></textarea>
+    <button id="saveBtn" onclick="saveStore()">保存する</button>
+    <button class="btn-sub" onclick="logout()">ログアウト</button>
+    <div id="adminStatus" style="text-align:center;font-size:14px;margin-top:10px;min-height:22px;"></div>
+  </div>
+
+  <div class="card" style="font-size:12.5px;color:var(--sub);">
+    店名・エリア・業種・公開設定の変更はラムネ運営までご連絡ください。
+  </div>
+</div>
+
+<script>
+// ================================================
+// 設定
+// ================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwywJH85jgJCjqEtsY47r4jA9SIOPoIGEN2dfXSGIJarzktdDBhoJpa4KdNU5nbWVie/exec';
+const TOKEN_KEY = 'ramune_store_token';
+const SID_KEY = 'ramune_store_id';
+
+// ================================================
+// こだわり条件の共通タグ(index.htmlのリストと必ず同じにする)
+// 自由記入だと表記ゆれで検索に引っかからないため、共通リストからのタップ選択方式
+// ================================================
+const FEATURE_GROUPS = [
+  { label: '働き方', tags: ['日払いOK','週1日〜OK','短時間OK','完全自由出勤','掛け持ちOK','出稼ぎ歓迎'] },
+  { label: 'こんな子に来てほしい', tags: ['未経験歓迎','経験者優遇','20代歓迎','30代歓迎','40代以上歓迎','学生歓迎','人妻・主婦歓迎','ぽっちゃり歓迎'] },
+  { label: '環境・待遇', tags: ['個室待機','送迎あり','寮・住居あり','託児所あり','アリバイ対策','ノルマ・罰金なし','講習なし','体験保証あり'] },
+];
+
+let selectedFeatures = [];
+let storePhoto = ''; // 写真URLの既存値(画面には出さないが保存時に維持する)
+
+function renderFeatures() {
+  const area = document.getElementById('featArea');
+  area.innerHTML = FEATURE_GROUPS.map(g => `
+    <div class="feat-group-label">${g.label}</div>
+    <div class="feat-chips">
+      ${g.tags.map(t =>
+        `<button type="button" class="chip ${selectedFeatures.includes(t) ? 'on' : ''}" data-t="${t}">${t}</button>`
+      ).join('')}
+    </div>
+  `).join('');
+  area.querySelectorAll('.chip').forEach(btn => {
+    btn.onclick = () => {
+      const t = btn.dataset.t;
+      const i = selectedFeatures.indexOf(t);
+      if (i === -1) selectedFeatures.push(t); else selectedFeatures.splice(i, 1);
+      renderFeatures();
+    };
+  });
+  document.getElementById('featSelected').textContent =
+    selectedFeatures.length ? '選択中: ' + selectedFeatures.join(' / ') : '選択中: なし';
+}
+
+// ================================================
+// 共通
+// ================================================
+function api(body) {
+  return fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' }, // プリフライト回避
+    body: JSON.stringify(body),
+  }).then(r => r.json());
+}
+
+function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+function setToken(t, id) { try { localStorage.setItem(TOKEN_KEY, t); localStorage.setItem(SID_KEY, id); } catch (e) {} }
+function clearToken() { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(SID_KEY); } catch (e) {} }
+
+function setStatus(elId, msg, ok) {
+  const el = document.getElementById(elId);
+  el.textContent = msg;
+  el.className = ok ? 'ok' : 'ng';
+}
+
+function show(viewId) {
+  document.getElementById('loginView').classList.toggle('hidden', viewId !== 'loginView');
+  document.getElementById('adminView').classList.toggle('hidden', viewId !== 'adminView');
+}
+
+// ================================================
+// ログイン
+// ================================================
+async function doLogin() {
+  const id = document.getElementById('loginId').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  if (!id || !pw) { setStatus('status', '店舗IDとパスワードを入れてね', false); return; }
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  setStatus('status', 'ログイン中...', true);
+  try {
+    const res = await api({ action: 'storeLogin', storeId: id, password: pw });
+    if (!res.ok) throw new Error(res.error);
+    setToken(res.result.token, res.result.storeId);
+    document.getElementById('loginPw').value = '';
+    await enterAdmin();
+  } catch (err) {
+    setStatus('status', String(err.message || err), false);
+  }
+  btn.disabled = false;
+}
+
+function logout() {
+  clearToken();
+  show('loginView');
+  setStatus('status', 'ログアウトしました', true);
+}
+
+// ================================================
+// 管理画面
+// ================================================
+async function enterAdmin() {
+  const token = getToken();
+  if (!token) { show('loginView'); return; }
+  try {
+    const [storeRes, statsRes] = await Promise.all([
+      api({ action: 'storeGet', token: token }),
+      api({ action: 'storeStats', token: token }),
+    ]);
+    if (!storeRes.ok) throw new Error(storeRes.error);
+    if (!statsRes.ok) throw new Error(statsRes.error);
+
+    const s = storeRes.result;
+    document.getElementById('storeBadge').textContent = s.name + '(' + s.id + ')';
+    document.getElementById('f_catch').value = s.catch || '';
+    document.getElementById('f_salary').value = s.salary || '';
+    document.getElementById('f_hours').value = s.hours || '';
+    document.getElementById('f_benefits').value = s.benefits || '';
+    document.getElementById('f_requirements').value = s.requirements || '';
+    document.getElementById('f_description').value = s.description || '';
+    storePhoto = s.photo || ''; // 写真は画面に出さないが、保存時に消えないよう値だけ保持
+    document.getElementById('f_line').value = s.line || '';
+    document.getElementById('f_tel').value = s.tel || '';
+    document.getElementById('f_template').value = s.template || '';
+
+    // こだわり条件を読み込み(「/」区切り文字列 → 配列)
+    selectedFeatures = String(s.features || '').split('/').map(f => f.trim()).filter(Boolean);
+    renderFeatures();
+
+    renderStats(statsRes.result);
+    show('adminView');
+    setStatus('adminStatus', '', true);
+  } catch (err) {
+    clearToken();
+    show('loginView');
+    setStatus('status', String(err.message || err), false);
+  }
+}
+
+function renderStats(st) {
+  document.getElementById('monthLabel').textContent = st.monthLabel + ' の実績';
+  const cell = (num, lbl, gold) =>
+    `<div class="stat ${gold ? 'gold' : ''}"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`;
+  document.getElementById('monthStats').innerHTML =
+    cell(st.month.detail, '詳細閲覧') + cell(st.month.fav || 0, '気になる') + cell(st.month.line, 'LINE応募', true) + cell(st.month.tel, '電話応募', true);
+  document.getElementById('totalStats').innerHTML =
+    cell(st.total.detail, '詳細閲覧') + cell(st.total.fav || 0, '気になる') + cell(st.total.line, 'LINE応募', true) + cell(st.total.tel, '電話応募', true);
+}
+
+async function saveStore() {
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  setStatus('adminStatus', '保存中...', true);
+  try {
+    const res = await api({
+      action: 'storeUpdate',
+      token: getToken(),
+      data: {
+        catch: document.getElementById('f_catch').value.trim(),
+        salary: document.getElementById('f_salary').value.trim(),
+        hours: document.getElementById('f_hours').value.trim(),
+        benefits: document.getElementById('f_benefits').value.trim(),
+        features: selectedFeatures.join(' / '),
+        requirements: document.getElementById('f_requirements').value.trim(),
+        description: document.getElementById('f_description').value.trim(),
+        photo: storePhoto, // 既存値をそのまま維持
+        line: document.getElementById('f_line').value.trim(),
+        tel: document.getElementById('f_tel').value.trim(),
+        template: document.getElementById('f_template').value.trim(),
+      },
+    });
+    if (!res.ok) throw new Error(res.error);
+    setStatus('adminStatus', '保存したよ!サイトに反映されています', true);
+  } catch (err) {
+    setStatus('adminStatus', String(err.message || err), false);
+  }
+  btn.disabled = false;
+}
+
+// 起動時: トークンがあれば自動ログイン
+enterAdmin();
+</script>
+</body>
+</html>
