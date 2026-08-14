@@ -165,11 +165,26 @@
         area: document.getElementById('aArea').value.trim(),
         genre: document.getElementById('aGenre').value.trim(),
       }}).then(r => {
-        const box = document.getElementById('newPassBox');
-        box.classList.remove('hide');
-        box.innerHTML = `【${esc(shop)}】のアカウントを発行しました。この画面でしか表示されないので必ず控えて店舗に渡してください。<br>
-          店舗ID: <b>${esc(r.store_id)}</b><br>初期パスワード: <b>${esc(r.password)}</b><br>
-          管理画面URL: ${location.origin}${location.pathname.replace('owner.html', 'admin.html')}`;
+        showPassMsg(
+`【ラムネ】掲載用アカウント発行のお知らせ
+
+${shop} 様
+
+求人サイト「ラムネ」の店舗アカウントを発行しました。
+下記の管理画面から、求人の掲載・編集とアクセス実績の確認ができます。
+
+▼店舗管理画面
+https://ramunekyuzin.github.io/admin.html
+
+▼ログイン情報
+店舗ID: ${r.store_id}
+パスワード: ${r.password}
+
+▼掲載中の求人サイト
+https://ramunekyuzin.github.io/
+
+ご不明点はこちらにお気軽にご連絡ください。
+ラムネ運営事務局`);
         document.getElementById('aShop').value = '';
         document.getElementById('aArea').value = '';
         document.getElementById('aGenre').value = '';
@@ -190,12 +205,45 @@
     }
     function passReset(storeId) {
       if (!confirm('この店舗のパスワードを再発行する?(今のパスワードとログインは無効になるよ)')) return;
+      const shopName = (STORES.find(s => s.store_id === storeId) || {}).shop || storeId;
       owner('passReset', { storeId: storeId }).then(r => {
-        const box = document.getElementById('newPassBox');
-        box.classList.remove('hide');
-        box.innerHTML = `店舗ID <b>${esc(storeId)}</b> の新しいパスワード: <b>${esc(r.password)}</b><br>この画面でしか表示されないので控えて店舗に渡してください。`;
+        showPassMsg(
+`【ラムネ】パスワード再発行のお知らせ
+
+${shopName} 様
+
+店舗管理画面のパスワードを再発行しました。
+次回から下記の情報でログインしてください。
+
+▼店舗管理画面
+https://ramunekyuzin.github.io/admin.html
+
+▼ログイン情報
+店舗ID: ${storeId}
+パスワード: ${r.password}
+
+ラムネ運営事務局`);
         setStatus('status2', '再発行したよ', true);
       }).catch(err => setStatus('status2', String(err.message || err), false));
+    }
+
+    // 発行結果をLINE送付用の文面で表示(この画面でしか出ないので必ずコピー)
+    function showPassMsg(text) {
+      const box = document.getElementById('newPassBox');
+      box.classList.remove('hide');
+      box.innerHTML = `パスワードは<b>この画面でしか表示されない</b>よ。下の文をコピーしてそのままLINEで店舗に送ってね。<br>
+        <textarea id="passMsg" readonly style="width:100%;height:180px;font-size:13px;line-height:1.6;margin-top:8px;border:1px solid #d5e3ec;border-radius:8px;padding:10px;">${esc(text)}</textarea>
+        <button id="passCopyBtn" style="margin-top:8px;" onclick="copyPassMsg()">案内文をコピー</button>`;
+      box.scrollIntoView({ behavior: 'smooth' });
+    }
+    function copyPassMsg() {
+      const text = document.getElementById('passMsg').value;
+      navigator.clipboard.writeText(text).then(() => {
+        document.getElementById('passCopyBtn').textContent = 'コピーした!あとはLINEに貼るだけ';
+      }).catch(() => {
+        document.getElementById('passMsg').select();
+        alert('コピーできなかったから、選択した文を長押しでコピーして');
+      });
     }
     function reloadStores() {
       owner('storeList').then(list => { STORES = list; renderStores(); });
