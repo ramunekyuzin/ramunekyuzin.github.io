@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>ラムネ｜店舗管理画面</title>
+  <style>
+    :root { --blue: #29a8e0; --blue-dark: #1b7fb0; --blue-pale: #e7f5fc; --pink: #ff7ba3; --text: #2b3947; --sub: #7b8a99; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f3f9fc; color: var(--text); padding: 16px; max-width: 560px; margin: 0 auto; }
+    h1 { font-size: 20px; color: var(--blue-dark); margin-bottom: 14px; }
+    h2 { font-size: 15px; margin-bottom: 10px; color: var(--blue-dark); }
+    .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    label { display: block; font-size: 12px; color: var(--sub); margin: 10px 0 4px; }
+    input, select, textarea { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #d5e3ec; border-radius: 8px; }
+    textarea { line-height: 1.6; }
+    button { padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; background: var(--blue); color: #fff; width: 100%; margin-top: 12px; }
+    button:active { opacity: .8; }
+    button:disabled { background: #aaa; }
+    button.sub { background: #fff; color: var(--blue-dark); border: 2px solid var(--blue); }
+    button.danger { background: #fff; color: #c0392b; border: 2px solid #c0392b; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .chip { padding: 7px 12px; font-size: 12px; border-radius: 999px; border: 1px solid #cfe3ef; background: #fff; width: auto; margin: 0; color: var(--text); font-weight: normal; }
+    .chip.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+    #status { text-align: center; font-size: 14px; margin-top: 10px; min-height: 20px; }
+    .ok { color: #1a8a3c; } .ng { color: #c0392b; }
+    .jobItem { border: 1px solid #e2edf4; border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+    .jobItem .t { font-weight: bold; font-size: 14px; }
+    .jobItem .m { font-size: 12px; color: var(--sub); margin: 3px 0 8px; }
+    .jobItem .off { color: #c0392b; font-weight: bold; }
+    .jobItem button { margin-top: 0; padding: 10px; font-size: 13px; width: auto; padding-left: 16px; padding-right: 16px; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 7px 4px; border-bottom: 1px solid #eef3f7; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--sub); font-weight: normal; }
+    .bigNums { display: flex; flex-wrap: wrap; gap: 8px; }
+    .bigNums div { flex: 1 1 30%; background: var(--blue-pale); border-radius: 10px; padding: 10px; text-align: center; }
+    .bigNums b { display: block; font-size: 20px; color: var(--blue-dark); }
+    .bigNums span { font-size: 11px; color: var(--sub); }
+    .hide { display: none; }
+  </style>
+</head>
+<body>
+  <h1>ラムネ 店舗管理画面</h1>
+
+  <!-- ログイン -->
+  <div class="card" id="loginCard">
+    <h2>店舗ログイン</h2>
+    <label>店舗ID</label>
+    <input id="loginId" autocomplete="username" placeholder="例: s1a2b3c4">
+    <label>パスワード</label>
+    <input id="loginPw" type="password" autocomplete="current-password">
+    <button id="loginBtn" onclick="login()">ログイン</button>
+    <div id="status"></div>
+  </div>
+
+  <!-- ダッシュボード -->
+  <div id="dash" class="hide">
+
+    <div class="card">
+      <h2>店舗情報</h2>
+      <label>店名</label>
+      <input id="sShop">
+      <div class="row">
+        <div>
+          <label>都道府県</label>
+          <select id="sPref"></select>
+        </div>
+        <div>
+          <label>エリア(例: 池袋)</label>
+          <input id="sArea">
+        </div>
+      </div>
+      <label>業種(例: デリヘル / 女性用風俗 / メンズエステ)</label>
+      <input id="sGenre">
+      <label>電話番号(応募受付用・任意)</label>
+      <input id="sTel" inputmode="tel">
+      <label>LINEの友だち追加URL(任意)</label>
+      <input id="sLine" placeholder="https://lin.ee/～">
+      <label>応募メッセージのテンプレ(空欄ならラムネ標準文)</label>
+      <textarea id="sTmpl" rows="4" placeholder="応募者がコピーして送る文面を自由に書けます"></textarea>
+      <button onclick="saveStore()">店舗情報を保存</button>
+    </div>
+
+    <div class="card">
+      <h2>掲載中の求人</h2>
+      <div id="jobList"></div>
+      <button class="sub" onclick="editJob('')">＋ 求人を追加する</button>
+    </div>
+
+    <!-- 求人編集フォーム -->
+    <div class="card hide" id="jobForm">
+      <h2 id="jobFormTitle">求人を追加</h2>
+      <label>募集区分</label>
+      <select id="jType" onchange="renderJobChips()">
+        <option value="cast">女性キャスト</option>
+        <option value="therapist">男性セラピスト(女性用風俗)</option>
+        <option value="staff">内勤スタッフ</option>
+      </select>
+      <label>募集タイトル(任意・例: 受付スタッフ急募)</label>
+      <input id="jTitle">
+      <label>給与(例: 日給3万円以上保証)</label>
+      <input id="jSalary">
+      <label>勤務時間(例: 10:00〜LAST/週1日〜OK)</label>
+      <input id="jHours">
+      <label>こだわり条件(当てはまるものをタップ)</label>
+      <div class="chips" id="jChips"></div>
+      <label>紹介文(お店からのメッセージ)</label>
+      <textarea id="jBody" rows="5"></textarea>
+      <label>表示順(小さいほど上・空欄OK)</label>
+      <input id="jOrder" inputmode="numeric">
+      <label>公開する</label>
+      <select id="jPublic">
+        <option value="1">公開</option>
+        <option value="0">非公開(下書き)</option>
+      </select>
+      <button id="jobSaveBtn" onclick="saveJob()">この内容で保存</button>
+      <button class="danger hide" id="jobDelBtn" onclick="delJob()">この求人を削除</button>
+      <button class="sub" onclick="closeJobForm()">閉じる</button>
+    </div>
+
+    <div class="card">
+      <h2>アクセス実績(合計)</h2>
+      <div class="bigNums" id="bigNums"></div>
+      <h2 style="margin-top:16px;">直近14日</h2>
+      <table id="dailyTable"></table>
+    </div>
+
+    <button class="sub" onclick="logout()">ログアウト</button>
+    <div id="status2" style="text-align:center;font-size:14px;margin-top:10px;min-height:20px;"></div>
+  </div>
+
+  <script>
+    // ============================================
+    // 設定: GASのWebアプリURLをここに入れる(index.htmlと同じURL)
+    // ============================================
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwqxzZWCW1wQ5pbDApf_XgBmLc-wiki6Ka7pFa5LLaJphXeefInnaF5PPSJWEcRcqZm/exec';
+
+    const FEATURES = {
+      cast: ['日払いOK','未経験歓迎','体験入店OK','自由出勤','送迎あり','寮・引越しサポート','託児所あり','個室待機','顔出し不要','短期OK','30代・40代歓迎','ノルマなし'],
+      therapist: ['未経験歓迎','講習・研修あり','容姿・年齢不問','副業・Wワーク可','日払いOK','歩合率高め','完全出来高','身バレ対策あり','地方出張あり'],
+      staff: ['日払いOK','未経験歓迎','週1日〜OK','短時間OK','深夜手当あり','昇給・独立支援','服装・髪型自由','電話対応のみ','送りドライバー','寮あり'],
+    };
+    const TYPE_LABEL = { cast: '女性キャスト', therapist: '男性セラピスト', staff: '内勤スタッフ' };
+    const EV_LABEL = { pv: 'サイト全体PV', detail: '詳細閲覧', line_tap: 'LINEタップ', tel_tap: '電話タップ', favorite: '気になる', template_copy: '応募文コピー' };
+    const PREFS = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
+
+    let session = JSON.parse(localStorage.getItem('ramune_admin') || 'null');
+    let DATA = null;          // storeData の結果
+    let editingJobId = '';
+    let jobFeats = [];
+
+    function api(payload) {
+      return fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) })
+        .then(r => r.json())
+        .then(res => { if (!res.ok) throw new Error(res.error); return res.result; });
+    }
+    function setStatus(id, msg, ok) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.className = ok ? 'ok' : 'ng';
+    }
+
+    // ---------- ログイン ----------
+    function login() {
+      const storeId = document.getElementById('loginId').value.trim();
+      const pw = document.getElementById('loginPw').value;
+      if (!storeId || !pw) { setStatus('status', '店舗IDとパスワードを入れてね', false); return; }
+      document.getElementById('loginBtn').disabled = true;
+      setStatus('status', 'ログイン中...', true);
+      api({ action: 'storeLogin', storeId: storeId, password: pw }).then(r => {
+        session = { storeId: storeId, token: r.token };
+        localStorage.setItem('ramune_admin', JSON.stringify(session));
+        loadDash();
+      }).catch(err => {
+        document.getElementById('loginBtn').disabled = false;
+        setStatus('status', String(err.message || err), false);
+      });
+    }
+    function logout() {
+      localStorage.removeItem('ramune_admin');
+      location.reload();
+    }
+
+    // ---------- ダッシュボード ----------
+    function loadDash() {
+      api({ action: 'storeData', storeId: session.storeId, token: session.token }).then(r => {
+        DATA = r;
+        document.getElementById('loginCard').classList.add('hide');
+        document.getElementById('dash').classList.remove('hide');
+        fillStore();
+        renderJobs();
+        renderStats();
+      }).catch(err => {
+        localStorage.removeItem('ramune_admin');
+        session = null;
+        document.getElementById('loginBtn').disabled = false;
+        setStatus('status', String(err.message || err), false);
+      });
+    }
+
+    function fillStore() {
+      const s = DATA.store;
+      document.getElementById('sPref').innerHTML = PREFS.map(p => `<option>${p}</option>`).join('');
+      document.getElementById('sShop').value = s.shop || '';
+      document.getElementById('sPref').value = s.pref || '東京都';
+      document.getElementById('sArea').value = s.area || '';
+      document.getElementById('sGenre').value = s.genre || '';
+      document.getElementById('sTel').value = s.tel || '';
+      document.getElementById('sLine').value = s.line || '';
+      document.getElementById('sTmpl').value = s.template || '';
+    }
+
+    function saveStore() {
+      setStatus('status2', '保存中...', true);
+      api({ action: 'storeUpdate', storeId: session.storeId, token: session.token, store: {
+        shop: document.getElementById('sShop').value.trim(),
+        pref: document.getElementById('sPref').value,
+        area: document.getElementById('sArea').value.trim(),
+        genre: document.getElementById('sGenre').value.trim(),
+        tel: document.getElementById('sTel').value.trim(),
+        line: document.getElementById('sLine').value.trim(),
+        template: document.getElementById('sTmpl').value,
+      }}).then(() => setStatus('status2', '店舗情報を保存したよ!', true))
+        .catch(err => setStatus('status2', String(err.message || err), false));
+    }
+
+    // ---------- 求人 ----------
+    function renderJobs() {
+      const el = document.getElementById('jobList');
+      if (!DATA.jobs.length) {
+        el.innerHTML = '<div style="font-size:13px;color:var(--sub);text-align:center;padding:10px 0;">まだ求人がありません。「＋求人を追加する」から作ってね</div>';
+        return;
+      }
+      el.innerHTML = DATA.jobs.map(j => `
+        <div class="jobItem">
+          <div class="t">${TYPE_LABEL[j.type] || j.type}${j.title ? '｜' + esc(j.title) : ''} ${j.public ? '' : '<span class="off">[非公開]</span>'}</div>
+          <div class="m">${esc(j.salary)}${j.created ? '｜掲載日 ' + j.created : ''}</div>
+          <button class="sub" onclick="editJob('${j.job_id}')">編集する</button>
+        </div>`).join('');
+    }
+
+    function editJob(jobId) {
+      editingJobId = jobId;
+      const j = DATA.jobs.find(x => x.job_id === jobId);
+      document.getElementById('jobFormTitle').textContent = j ? '求人を編集' : '求人を追加';
+      document.getElementById('jobDelBtn').classList.toggle('hide', !j);
+      document.getElementById('jType').value = j ? j.type : 'cast';
+      document.getElementById('jTitle').value = j ? (j.title || '') : '';
+      document.getElementById('jSalary').value = j ? (j.salary || '') : '';
+      document.getElementById('jHours').value = j ? (j.hours || '') : '';
+      document.getElementById('jBody').value = j ? (j.body || '') : '';
+      document.getElementById('jOrder').value = j ? (j.order || '') : '';
+      document.getElementById('jPublic').value = (!j || j.public) ? '1' : '0';
+      jobFeats = j ? [...(j.features || [])] : [];
+      renderJobChips();
+      document.getElementById('jobForm').classList.remove('hide');
+      document.getElementById('jobForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function renderJobChips() {
+      const type = document.getElementById('jType').value;
+      jobFeats = jobFeats.filter(f => FEATURES[type].includes(f));
+      document.getElementById('jChips').innerHTML = FEATURES[type]
+        .map(f => `<button type="button" class="chip ${jobFeats.includes(f) ? 'on' : ''}" onclick="toggleJobFeat('${f}')">${f}</button>`).join('');
+    }
+    function toggleJobFeat(f) {
+      jobFeats = jobFeats.includes(f) ? jobFeats.filter(x => x !== f) : [...jobFeats, f];
+      renderJobChips();
+    }
+
+    function saveJob() {
+      const btn = document.getElementById('jobSaveBtn');
+      btn.disabled = true;
+      setStatus('status2', '保存中...', true);
+      api({ action: 'jobSave', storeId: session.storeId, token: session.token, job: {
+        job_id: editingJobId,
+        type: document.getElementById('jType').value,
+        title: document.getElementById('jTitle').value.trim(),
+        salary: document.getElementById('jSalary').value.trim(),
+        hours: document.getElementById('jHours').value.trim(),
+        features: jobFeats,
+        body: document.getElementById('jBody').value,
+        order: document.getElementById('jOrder').value.trim(),
+        public: document.getElementById('jPublic').value === '1',
+      }}).then(() => {
+        btn.disabled = false;
+        closeJobForm();
+        setStatus('status2', '求人を保存したよ!', true);
+        loadDash();
+      }).catch(err => {
+        btn.disabled = false;
+        setStatus('status2', String(err.message || err), false);
+      });
+    }
+
+    function delJob() {
+      if (!confirm('この求人を削除する?元に戻せないよ')) return;
+      api({ action: 'jobDelete', storeId: session.storeId, token: session.token, jobId: editingJobId })
+        .then(() => { closeJobForm(); setStatus('status2', '削除したよ', true); loadDash(); })
+        .catch(err => setStatus('status2', String(err.message || err), false));
+    }
+
+    function closeJobForm() {
+      document.getElementById('jobForm').classList.add('hide');
+      editingJobId = '';
+    }
+
+    // ---------- 実績 ----------
+    function renderStats() {
+      const st = DATA.stats;
+      const evs = ['detail', 'line_tap', 'tel_tap', 'favorite', 'template_copy'];
+      document.getElementById('bigNums').innerHTML = evs.map(ev =>
+        `<div><b>${st.total[ev] || 0}</b><span>${EV_LABEL[ev]}</span></div>`).join('');
+
+      const days = [];
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 86400000);
+        days.push(d.toISOString().slice(0, 10));
+      }
+      document.getElementById('dailyTable').innerHTML =
+        '<tr><th>日付</th>' + evs.map(ev => `<th>${EV_LABEL[ev].replace('タップ','')}</th>`).join('') + '</tr>' +
+        days.map(day => {
+          const row = st.daily[day] || {};
+          return `<tr><td>${day.slice(5)}</td>` + evs.map(ev => `<td>${row[ev] || 0}</td>`).join('') + '</tr>';
+        }).join('');
+    }
+
+    function esc(s) {
+      return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    if (session) loadDash();
+  </script>
+</body>
+</html>
