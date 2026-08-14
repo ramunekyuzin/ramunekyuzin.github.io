@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>ラムネ｜運営管理画面</title>
+  <style>
+    :root { --blue: #29a8e0; --blue-dark: #1b7fb0; --blue-pale: #e7f5fc; --text: #2b3947; --sub: #7b8a99; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f3f9fc; color: var(--text); padding: 16px; max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 20px; color: var(--blue-dark); margin-bottom: 14px; }
+    h2 { font-size: 15px; margin-bottom: 10px; color: var(--blue-dark); }
+    .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    label { display: block; font-size: 12px; color: var(--sub); margin: 10px 0 4px; }
+    input, select { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #d5e3ec; border-radius: 8px; }
+    button { padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; background: var(--blue); color: #fff; width: 100%; margin-top: 12px; }
+    button:active { opacity: .8; }
+    button:disabled { background: #aaa; }
+    button.sub { background: #fff; color: var(--blue-dark); border: 2px solid var(--blue); }
+    button.mini { width: auto; padding: 8px 12px; font-size: 12px; margin: 0; }
+    #status { text-align: center; font-size: 14px; margin-top: 10px; min-height: 20px; }
+    .ok { color: #1a8a3c; } .ng { color: #c0392b; }
+    .storeItem { border: 1px solid #e2edf4; border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+    .storeItem .t { font-weight: bold; font-size: 14px; }
+    .storeItem .m { font-size: 12px; color: var(--sub); margin: 3px 0 8px; }
+    .storeItem .off { color: #c0392b; font-weight: bold; }
+    .btnRow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .btnRow input { width: 64px; padding: 8px; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 7px 4px; border-bottom: 1px solid #eef3f7; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--sub); font-weight: normal; }
+    .hide { display: none; }
+    .newPass { background: #fff8e1; border: 1px solid #f0d264; border-radius: 8px; padding: 10px; font-size: 13px; margin-top: 10px; line-height: 1.8; word-break: break-all; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+  </style>
+</head>
+<body>
+  <h1>ラムネ 運営管理画面</h1>
+
+  <!-- ログイン -->
+  <div class="card" id="loginCard">
+    <h2>運営ログイン</h2>
+    <label>運営パスワード</label>
+    <input id="loginPw" type="password">
+    <button id="loginBtn" onclick="login()">ログイン</button>
+    <div id="status"></div>
+  </div>
+
+  <div id="dash" class="hide">
+
+    <!-- 店舗追加 -->
+    <div class="card">
+      <h2>店舗を追加(アカウント発行)</h2>
+      <label>店名 *</label>
+      <input id="aShop">
+      <div class="row">
+        <div>
+          <label>都道府県</label>
+          <select id="aPref"></select>
+        </div>
+        <div>
+          <label>エリア</label>
+          <input id="aArea" placeholder="例: 池袋">
+        </div>
+      </div>
+      <label>業種</label>
+      <input id="aGenre" placeholder="例: 女性用風俗">
+      <button onclick="addStore()">発行する</button>
+      <div id="newPassBox" class="newPass hide"></div>
+    </div>
+
+    <!-- 店舗一覧 -->
+    <div class="card">
+      <h2>店舗一覧</h2>
+      <div id="storeList"></div>
+    </div>
+
+    <!-- 実績 -->
+    <div class="card">
+      <h2>サイト全体・直近14日</h2>
+      <table id="dailyTable"></table>
+      <h2 style="margin-top:16px;">店舗別・合計</h2>
+      <table id="storeTable"></table>
+    </div>
+
+    <button class="sub" onclick="logout()">ログアウト</button>
+    <div id="status2" style="text-align:center;font-size:14px;margin-top:10px;min-height:20px;"></div>
+  </div>
+
+  <script>
+    // ============================================
+    // 設定: GASのWebアプリURLをここに入れる(index.htmlと同じURL)
+    // ============================================
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwqxzZWCW1wQ5pbDApf_XgBmLc-wiki6Ka7pFa5LLaJphXeefInnaF5PPSJWEcRcqZm/exec';
+
+    const EV_LABEL = { pv: 'PV', detail: '詳細', line_tap: 'LINE', tel_tap: '電話', favorite: '気になる', template_copy: 'コピー' };
+    const PREFS = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
+
+    // 運営パスワードはセッション中のみメモリ保持(localStorageには保存しない)
+    let ownerPw = '';
+    let STORES = [];
+
+    function api(payload) {
+      return fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) })
+        .then(r => r.json())
+        .then(res => { if (!res.ok) throw new Error(res.error); return res.result; });
+    }
+    function owner(cmd, extra) {
+      return api(Object.assign({ action: 'owner', password: ownerPw, cmd: cmd }, extra || {}));
+    }
+    function setStatus(id, msg, ok) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.className = ok ? 'ok' : 'ng';
+    }
+
+    // ---------- ログイン ----------
+    function login() {
+      ownerPw = document.getElementById('loginPw').value;
+      if (!ownerPw) { setStatus('status', 'パスワードを入れてね', false); return; }
+      document.getElementById('loginBtn').disabled = true;
+      setStatus('status', '確認中...', true);
+      owner('storeList').then(list => {
+        STORES = list;
+        document.getElementById('loginCard').classList.add('hide');
+        document.getElementById('dash').classList.remove('hide');
+        document.getElementById('aPref').innerHTML = PREFS.map(p => `<option>${p}</option>`).join('');
+        document.getElementById('aPref').value = '東京都';
+        renderStores();
+        loadStats();
+      }).catch(err => {
+        document.getElementById('loginBtn').disabled = false;
+        setStatus('status', String(err.message || err), false);
+      });
+    }
+    function logout() { location.reload(); }
+
+    // ---------- 店舗管理 ----------
+    function renderStores() {
+      const el = document.getElementById('storeList');
+      if (!STORES.length) { el.innerHTML = '<div style="font-size:13px;color:var(--sub);">まだ店舗がありません</div>'; return; }
+      el.innerHTML = STORES.map(s => `
+        <div class="storeItem">
+          <div class="t">${esc(s.shop)} ${s.public ? '' : '<span class="off">[非公開]</span>'}</div>
+          <div class="m">ID: ${esc(s.store_id)}｜${esc(s.pref)} ${esc(s.area)}｜${esc(s.genre)}｜求人${s.jobCount}件</div>
+          <div class="btnRow">
+            <button class="mini" onclick="toggle('${s.store_id}')">${s.public ? '非公開にする' : '公開する'}</button>
+            <input value="${esc(s.order)}" id="ord_${s.store_id}" inputmode="numeric">
+            <button class="mini sub" onclick="setOrder('${s.store_id}')">順位保存</button>
+            <button class="mini sub" onclick="passReset('${s.store_id}')">パス再発行</button>
+          </div>
+        </div>`).join('');
+    }
+
+    function addStore() {
+      const shop = document.getElementById('aShop').value.trim();
+      if (!shop) { setStatus('status2', '店名は必須だよ', false); return; }
+      setStatus('status2', '発行中...', true);
+      owner('storeAdd', { store: {
+        shop: shop,
+        pref: document.getElementById('aPref').value,
+        area: document.getElementById('aArea').value.trim(),
+        genre: document.getElementById('aGenre').value.trim(),
+      }}).then(r => {
+        const box = document.getElementById('newPassBox');
+        box.classList.remove('hide');
+        box.innerHTML = `【${esc(shop)}】のアカウントを発行しました。この画面でしか表示されないので必ず控えて店舗に渡してください。<br>
+          店舗ID: <b>${esc(r.store_id)}</b><br>初期パスワード: <b>${esc(r.password)}</b><br>
+          管理画面URL: ${location.origin}${location.pathname.replace('owner.html', 'admin.html')}`;
+        document.getElementById('aShop').value = '';
+        document.getElementById('aArea').value = '';
+        document.getElementById('aGenre').value = '';
+        setStatus('status2', '発行したよ!', true);
+        reloadStores();
+      }).catch(err => setStatus('status2', String(err.message || err), false));
+    }
+
+    function toggle(storeId) {
+      owner('togglePublish', { storeId: storeId })
+        .then(() => { setStatus('status2', '切り替えたよ', true); reloadStores(); })
+        .catch(err => setStatus('status2', String(err.message || err), false));
+    }
+    function setOrder(storeId) {
+      owner('setOrder', { storeId: storeId, order: document.getElementById('ord_' + storeId).value })
+        .then(() => { setStatus('status2', '表示順を保存したよ', true); reloadStores(); })
+        .catch(err => setStatus('status2', String(err.message || err), false));
+    }
+    function passReset(storeId) {
+      if (!confirm('この店舗のパスワードを再発行する?(今のパスワードとログインは無効になるよ)')) return;
+      owner('passReset', { storeId: storeId }).then(r => {
+        const box = document.getElementById('newPassBox');
+        box.classList.remove('hide');
+        box.innerHTML = `店舗ID <b>${esc(storeId)}</b> の新しいパスワード: <b>${esc(r.password)}</b><br>この画面でしか表示されないので控えて店舗に渡してください。`;
+        setStatus('status2', '再発行したよ', true);
+      }).catch(err => setStatus('status2', String(err.message || err), false));
+    }
+    function reloadStores() {
+      owner('storeList').then(list => { STORES = list; renderStores(); });
+    }
+
+    // ---------- 実績 ----------
+    function loadStats() {
+      owner('stats').then(st => {
+        const evs = ['pv', 'detail', 'line_tap', 'tel_tap', 'favorite', 'template_copy'];
+        const days = [];
+        for (let i = 13; i >= 0; i--) {
+          const d = new Date(Date.now() - i * 86400000);
+          days.push(d.toISOString().slice(0, 10));
+        }
+        document.getElementById('dailyTable').innerHTML =
+          '<tr><th>日付</th>' + evs.map(ev => `<th>${EV_LABEL[ev]}</th>`).join('') + '</tr>' +
+          days.map(day => {
+            const row = st.daily[day] || {};
+            return `<tr><td>${day.slice(5)}</td>` + evs.map(ev => `<td>${row[ev] || 0}</td>`).join('') + '</tr>';
+          }).join('');
+
+        const nameOf = id => (STORES.find(s => s.store_id === id) || {}).shop || id;
+        const rows = Object.keys(st.byStore);
+        document.getElementById('storeTable').innerHTML =
+          '<tr><th>店舗</th>' + evs.slice(1).map(ev => `<th>${EV_LABEL[ev]}</th>`).join('') + '</tr>' +
+          (rows.length ? rows.map(id => {
+            const r = st.byStore[id];
+            return `<tr><td>${esc(nameOf(id))}</td>` + evs.slice(1).map(ev => `<td>${r[ev] || 0}</td>`).join('') + '</tr>';
+          }).join('') : '<tr><td colspan="6">まだ実績がありません</td></tr>');
+      }).catch(err => setStatus('status2', String(err.message || err), false));
+    }
+
+    function esc(s) {
+      return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>
