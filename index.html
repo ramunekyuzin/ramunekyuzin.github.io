@@ -256,6 +256,10 @@
       document.getElementById('favView').classList.toggle('on', state.favOnly);
     }
 
+    function areasOf(j) {
+      return String(j.area || '').split(/[,、，]/).map(x => x.trim()).filter(Boolean);
+    }
+
     function buildSelects() {
       const pool = ALL.filter(j => j.type === state.type);
       const prefSel = document.getElementById('pref');
@@ -266,7 +270,7 @@
     }
     function onPref(keep) {
       const pref = document.getElementById('pref').value;
-      const areas = [...new Set(ALL.filter(j => j.type === state.type && (!pref || j.pref === pref)).map(j => j.area).filter(Boolean))];
+      const areas = [...new Set(ALL.filter(j => j.type === state.type && (!pref || j.pref === pref)).flatMap(areasOf))];
       const areaSel = document.getElementById('area');
       const cur = keep ? areaSel.value : '';
       areaSel.innerHTML = '<option value="">すべてのエリア</option>' + areas.map(a => `<option>${a}</option>`).join('');
@@ -288,7 +292,7 @@
       let list = ALL.filter(j => j.type === state.type);
       if (state.favOnly) list = list.filter(j => FAVS.includes(j.job_id));
       if (pref) list = list.filter(j => j.pref === pref);
-      if (area) list = list.filter(j => j.area === area);
+      if (area) list = list.filter(j => areasOf(j).includes(area));
       if (genre) list = list.filter(j => j.genre === genre);
       if (state.feats.length) list = list.filter(j => state.feats.every(f => (j.features || []).includes(f)));
       if (kw) list = list.filter(j => [j.shop, j.title, j.salary, j.body, j.area, j.genre].join(' ').toLowerCase().includes(kw));
@@ -312,7 +316,7 @@
         <div class="card" onclick="openDetail('${j.job_id}')">
           <button class="fav ${FAVS.includes(j.job_id) ? 'on' : ''}" onclick="event.stopPropagation();toggleFavItem('${j.job_id}')">♥</button>
           <div class="shop">${isNew(j) ? '<span class="badge-new">NEW</span>' : ''}${esc(j.shop)}</div>
-          <div class="meta">${esc(j.pref)} ${esc(j.area)}｜${esc(j.genre)}｜${TYPE_LABEL[j.type]}${j.title ? '｜' + esc(j.title) : ''}</div>
+          <div class="meta">${esc(j.pref)} ${areasOf(j).map(esc).join('・')}｜${esc(j.genre)}｜${TYPE_LABEL[j.type]}${j.title ? '｜' + esc(j.title) : ''}</div>
           <div class="salary">${esc(j.salary)}</div>
           <div class="tags">${(j.features || []).map(f => `<span>${esc(f)}</span>`).join('')}</div>
         </div>`).join('');
@@ -340,7 +344,7 @@
       document.getElementById('modalBody').innerHTML = `
         <button class="close" onclick="closeModal()">×</button>
         <h2>${isNew(j) ? '<span class="badge-new">NEW</span>' : ''}${esc(j.shop)}</h2>
-        <div class="meta">${esc(j.pref)} ${esc(j.area)}｜${esc(j.genre)}｜${TYPE_LABEL[j.type]}</div>
+        <div class="meta">${esc(j.pref)} ${areasOf(j).map(esc).join('・')}｜${esc(j.genre)}｜${TYPE_LABEL[j.type]}</div>
         <dl class="dl">
           ${j.title ? `<dt>募集</dt><dd>${esc(j.title)}</dd>` : ''}
           <dt>給与</dt><dd>${esc(j.salary) || '詳細はお問い合わせください'}</dd>
