@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>伝票集計</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: #f5f6f8; color: #222;
+      padding: 16px; max-width: 560px; margin: 0 auto;
+    }
+    h1 { font-size: 20px; margin-bottom: 12px; }
+    h2 { font-size: 16px; margin: 8px 0; }
+    .card {
+      background: #fff; border-radius: 12px; padding: 16px;
+      margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    label { display: block; font-size: 13px; margin: 6px 0 4px; color: #555; }
+    input, select {
+      width: 100%; padding: 12px; font-size: 16px;
+      border: 1px solid #ccc; border-radius: 8px;
+    }
+    button {
+      width: 100%; padding: 16px; font-size: 17px; font-weight: bold;
+      border: none; border-radius: 10px; background: #1e5aa8; color: #fff; margin-top: 8px;
+    }
+    button:active { opacity: .8; }
+    button:disabled { background: #aaa; }
+    button.sub { background: #666; padding: 12px; font-size: 15px; }
+    #status { text-align: center; font-size: 14px; margin-top: 10px; min-height: 20px; }
+    .ok { color: #1a8a3c; } .ng { color: #c0392b; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    th, td { border-bottom: 1px solid #eee; padding: 6px 4px; text-align: left; }
+    td input { padding: 8px 6px; font-size: 15px; }
+    .num { width: 64px; }
+    .head-inputs { display: flex; gap: 8px; }
+    .head-inputs > div { flex: 1; }
+    .warn { font-size: 13px; color: #c0392b; margin-top: 6px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tabs button { margin-top: 0; padding: 12px; font-size: 15px; background: #ddd; color: #333; }
+    .tabs button.active { background: #1e5aa8; color: #fff; }
+    .agg-cast { font-weight: bold; margin-top: 10px; }
+    .agg-item { font-size: 13px; color: #555; padding-left: 12px; }
+    .del { color: #c0392b; font-size: 18px; padding: 4px 8px; background: none; width: auto; margin: 0; }
+  </style>
+</head>
+<body>
+  <h1>伝票集計</h1>
+
+  <!-- 合言葉(初回のみ入力→端末に保存) -->
+  <div class="card" id="tokenCard" style="display:none;">
+    <label>合言葉</label>
+    <input id="token" type="password" placeholder="合言葉を入力">
+    <button class="sub" onclick="saveToken()">この端末に保存</button>
+  </div>
+
+  <div class="tabs">
+    <button id="tabScan" class="active" onclick="switchTab('scan')">📷 読み取り</button>
+    <button id="tabAgg" onclick="switchTab('agg')">📊 集計</button>
+  </div>
+
+  <!-- 読み取りタブ -->
+  <div id="paneScan">
+    <div class="card">
+      <input type="file" id="photo" accept="image/*" multiple onchange="onPhoto()">
+      <button id="parseBtn" onclick="parsePhoto()" disabled>AIで読み取る</button>
+    </div>
+    <div id="results"></div>
+    <button id="saveBtn" onclick="save()" style="display:none;">シートに保存する</button>
+    <div id="status"></div>
+  </div>
+
+  <!-- 集計タブ -->
+  <div id="paneAgg" style="display:none;">
+    <div class="card">
+      <div class="head-inputs">
+        <div><label>開始 (例 7/1)</label><input id="dateFrom" placeholder="7/1"></div>
+        <div><label>終了 (例 7/31)</label><input id="dateTo" placeholder="7/31"></div>
+      </div>
+      <button onclick="runAgg()">集計する</button>
+    </div>
+    <div id="aggResult"></div>
+  </div>
+
+  <script>
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxQCA73By2joXzDDDnGQgwOk8tXB_Lghk6epIRXhja7NxMhaCyqi8FqOcVnwfcXHREK/exec'; // ← デプロイ後のURL
+
+    let imgList = [];
+    let parsed = null; // {receipts:[...]}
+
+    // ---- 合言葉管理 ----
+    function getToken() { return localStorage.getItem('denpyo_token') || ''; }
+    function saveToken() {
+      localStorage.setItem('denpyo_token', document.getElementById('token').value.trim());
+      document.getElementById('tokenCard').style.display = 'none';
+      setStatus('合言葉を保存したよ', true);
+    }
+    if (!getToken()) document.getElementById('tokenCard').style.display = '';
+
+    // ---- GAS通信(text/plainでプリフライト回避) ----
+    function callApi(payload) {
+      payload.token = getToken();
+      return fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.ok) throw new Error(res.error);
+        return res.result;
+      });
+    }
+
+    function switchTab(t) {
+      document.getElementById('paneScan').style.display = t === 'scan' ? '' : 'none';
+      document.getElementById('paneAgg').style.display = t === 'agg' ? '' : 'none';
+      document.getElementById('tabScan').className = t === 'scan' ? 'active' : '';
+      document.getElementById('tabAgg').className = t === 'agg' ? 'active' : '';
+    }
+
+    function setStatus(msg, ok) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = ok ? 'ok' : 'ng';
+    }
+
+    // 写真選択(複数可) → それぞれ縮小してbase64化
+    function onPhoto() {
+      const files = Array.from(document.getElementById('photo').files);
+      if (!files.length) return;
+      imgList = [];
+      let done = 0;
+      files.forEach((file, idx) => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 1568;
+          let w = img.width, h = img.height;
+          if (Math.max(w, h) > MAX) {
+            const r = MAX / Math.max(w, h);
+            w = Math.round(w * r); h = Math.round(h * r);
+          }
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(img, 0, 0, w, h);
+          imgList[idx] = cv.toDataURL('image/jpeg', 0.85).split(',')[1];
+          done++;
+          if (done === files.length) {
+            setStatus(files.length + '枚読み込んだよ', true);
+            document.getElementById('parseBtn').disabled = false;
+          }
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // 写真を1枚ずつAIに読ませて結果を結合
+    async function parsePhoto() {
+      const btn = document.getElementById('parseBtn');
+      btn.disabled = true;
+      parsed = { receipts: [] };
+      try {
+        for (let i = 0; i < imgList.length; i++) {
+          setStatus('AIが読み取り中... (' + (i + 1) + '/' + imgList.length + '枚目)', true);
+          const res = await callApi({ action: 'parse', image: imgList[i], mime: 'image/jpeg' });
+          parsed.receipts = parsed.receipts.concat(res.receipts || []);
+        }
+        renderResults();
+        setStatus('全部読み取ったよ！確認して修正してね', true);
+      } catch (err) {
+        setStatus('エラー: ' + err.message, false);
+      }
+      btn.disabled = false;
+    }
+
+    // 確認・修正用の編集テーブルを描画
+    function renderResults() {
+      const wrap = document.getElementById('results');
+      wrap.innerHTML = '';
+      (parsed.receipts || []).forEach((r, ri) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <h2>伝票 ${ri + 1}</h2>
+          <div class="head-inputs">
+            <div><label>日付</label><input value="${esc(r.date)}" oninput="parsed.receipts[${ri}].date=this.value"></div>
+            <div><label>時刻</label><input value="${esc(r.time)}" oninput="parsed.receipts[${ri}].time=this.value"></div>
+            <div><label>客名</label><input value="${esc(r.customer)}" oninput="parsed.receipts[${ri}].customer=this.value"></div>
+          </div>
+          <table>
+            <tr><th>品名</th><th>キャスト</th><th>数</th><th>金額</th><th></th></tr>
+            <tbody id="items-${ri}"></tbody>
+          </table>
+          <button class="sub" onclick="addItem(${ri})">＋ 行を追加</button>
+          <label>伝票の合計金額(照合用)</label>
+          <input class="num" id="total-${ri}" value="${r.total ?? ''}" oninput="parsed.receipts[${ri}].total=Number(this.value)||0; checkTotal(${ri})" style="width:120px;">
+          <div class="warn" id="warn-${ri}"></div>`;
+        wrap.appendChild(card);
+        r.items.forEach((it, ii) => renderItemRow(ri, ii));
+        checkTotal(ri);
+      });
+      document.getElementById('saveBtn').style.display = (parsed.receipts || []).length ? '' : 'none';
+    }
+
+    function renderItemRow(ri, ii) {
+      const it = parsed.receipts[ri].items[ii];
+      const tbody = document.getElementById('items-' + ri);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input value="${esc(it.name)}" oninput="upd(${ri},${ii},'name',this.value)"></td>
+        <td><input value="${esc(it.cast)}" oninput="upd(${ri},${ii},'cast',this.value)"></td>
+        <td><input class="num" type="number" value="${it.qty ?? ''}" oninput="upd(${ri},${ii},'qty',Number(this.value))"></td>
+        <td><input class="num" type="number" value="${it.amount ?? ''}" oninput="upd(${ri},${ii},'amount',Number(this.value))"></td>
+        <td><button class="del" onclick="delItem(${ri},${ii})">✕</button></td>`;
+      tbody.appendChild(tr);
+    }
+
+    function upd(ri, ii, key, val) {
+      parsed.receipts[ri].items[ii][key] = val;
+      checkTotal(ri);
+    }
+    function addItem(ri) {
+      parsed.receipts[ri].items.push({ name: '', cast: '', qty: 1, unit: 0, amount: 0 });
+      redrawItems(ri);
+    }
+    function delItem(ri, ii) {
+      parsed.receipts[ri].items.splice(ii, 1);
+      redrawItems(ri);
+    }
+    function redrawItems(ri) {
+      document.getElementById('items-' + ri).innerHTML = '';
+      parsed.receipts[ri].items.forEach((it, ii) => renderItemRow(ri, ii));
+      checkTotal(ri);
+    }
+
+    // 明細合計と伝票合計の照合
+    function checkTotal(ri) {
+      const r = parsed.receipts[ri];
+      const sum = r.items.reduce((a, it) => a + (Number(it.amount) || 0), 0);
+      const warn = document.getElementById('warn-' + ri);
+      if (r.total && sum !== Number(r.total)) {
+        warn.textContent = `⚠ 明細合計 ${sum.toLocaleString()}円 ≠ 伝票合計 ${Number(r.total).toLocaleString()}円(差額 ${(r.total - sum).toLocaleString()}円)`;
+      } else {
+        warn.textContent = '';
+      }
+    }
+
+    function save() {
+      const btn = document.getElementById('saveBtn');
+      btn.disabled = true;
+      setStatus('保存中...', true);
+      callApi({ action: 'save', receipts: parsed.receipts })
+        .then(res => {
+          btn.disabled = false;
+          setStatus(res.added + '行 保存したよ！', true);
+          document.getElementById('results').innerHTML = '';
+          btn.style.display = 'none';
+          document.getElementById('photo').value = '';
+          document.getElementById('parseBtn').disabled = true;
+        })
+        .catch(err => {
+          btn.disabled = false;
+          setStatus('エラー: ' + err.message, false);
+        });
+    }
+
+    function runAgg() {
+      const wrap = document.getElementById('aggResult');
+      wrap.innerHTML = '<div class="card">集計中...</div>';
+      callApi({
+        action: 'agg',
+        dateFrom: document.getElementById('dateFrom').value.trim(),
+        dateTo: document.getElementById('dateTo').value.trim()
+      })
+        .then(res => {
+          let html = '<div class="card"><h2>キャスト別集計</h2>';
+          const casts = Object.keys(res.byCast).sort((a, b) => res.byCast[b].amount - res.byCast[a].amount);
+          if (!casts.length) html += '<div>データなし</div>';
+          casts.forEach(c => {
+            const d = res.byCast[c];
+            html += `<div class="agg-cast">${esc(c)}: ${d.amount.toLocaleString()}円 (${d.count}点)</div>`;
+            Object.keys(d.items).forEach(n => {
+              html += `<div class="agg-item">${esc(n)} × ${d.items[n]}</div>`;
+            });
+          });
+          html += `<div class="agg-cast" style="border-top:1px solid #ccc;padding-top:8px;">総合計: ${res.grandTotal.toLocaleString()}円</div></div>`;
+          wrap.innerHTML = html;
+        })
+        .catch(err => {
+          wrap.innerHTML = `<div class="card ng">エラー: ${esc(err.message)}</div>`;
+        });
+    }
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+  </script>
+</body>
+</html>
