@@ -1,344 +1,378 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex">
-  <title>伝票集計</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, "Hiragino Mincho ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
-      background: linear-gradient(160deg, #0d0d12 0%, #16161f 60%, #1a1723 100%);
-      min-height: 100vh;
-      color: #e8e4da;
-      padding: 20px 16px 40px; max-width: 560px; margin: 0 auto;
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>更新案内メール作成</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1a1a2e;
+    --sub: #667085;
+    --accent: #6c5ce7;
+    --accent-text: #ffffff;
+    --border: #d8dce3;
+    --preview-bg: #fafbfc;
+    --ng: #e05252;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14151a;
+      --card: #1f2128;
+      --text: #eceef2;
+      --sub: #9aa1ad;
+      --accent: #8b7cf7;
+      --accent-text: #ffffff;
+      --border: #3a3d46;
+      --preview-bg: #17181d;
+      --ng: #ff7b7b;
     }
-    h1 {
-      font-size: 22px; margin-bottom: 18px; text-align: center;
-      letter-spacing: .35em; text-indent: .35em; font-weight: 600;
-      color: #d4af6a;
-    }
-    h1::after {
-      content: ""; display: block; width: 48px; height: 1px;
-      background: linear-gradient(90deg, transparent, #d4af6a, transparent);
-      margin: 10px auto 0;
-    }
-    h2 {
-      font-size: 15px; margin: 4px 0 10px; color: #d4af6a;
-      letter-spacing: .12em; font-weight: 600;
-    }
-    .card {
-      background: rgba(255,255,255,.045);
-      border: 1px solid rgba(212,175,106,.22);
-      border-radius: 14px; padding: 18px 16px;
-      margin-bottom: 14px;
-      box-shadow: 0 4px 20px rgba(0,0,0,.35);
-      backdrop-filter: blur(6px);
-    }
-    label { display: block; font-size: 12px; margin: 8px 0 5px; color: #b8a988; letter-spacing: .08em; }
-    input, select {
-      width: 100%; padding: 12px; font-size: 16px;
-      background: rgba(0,0,0,.35); color: #f0ece2;
-      border: 1px solid rgba(212,175,106,.3); border-radius: 9px;
-      outline: none;
-    }
-    input:focus, select:focus { border-color: #d4af6a; box-shadow: 0 0 0 2px rgba(212,175,106,.18); }
-    input::placeholder { color: #6b6455; }
-    button {
-      width: 100%; padding: 16px; font-size: 16px; font-weight: bold;
-      letter-spacing: .1em;
-      border: none; border-radius: 11px;
-      background: linear-gradient(135deg, #c9a55c 0%, #e2c78a 50%, #c9a55c 100%);
-      color: #1a1610; margin-top: 10px;
-      box-shadow: 0 3px 14px rgba(212,175,106,.3);
-    }
-    button:active { transform: translateY(1px); opacity: .9; }
-    button:disabled { background: #4a463e; color: #8a857a; box-shadow: none; }
-    button.sub {
-      background: transparent; color: #d4af6a;
-      border: 1px solid rgba(212,175,106,.45);
-      padding: 12px; font-size: 14px; box-shadow: none;
-    }
-    #status { text-align: center; font-size: 14px; margin-top: 12px; min-height: 20px; letter-spacing: .05em; }
-    .ok { color: #a8d8a8; } .ng { color: #e08a8a; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
-    th { color: #b8a988; font-weight: normal; font-size: 12px; letter-spacing: .08em; }
-    th, td { border-bottom: 1px solid rgba(212,175,106,.14); padding: 7px 4px; text-align: left; }
-    td input { padding: 9px 7px; font-size: 15px; }
-    .num { width: 64px; }
-    .head-inputs { display: flex; gap: 8px; }
-    .head-inputs > div { flex: 1; }
-    .warn { font-size: 13px; color: #e0a08a; margin-top: 8px; }
-    .tabs { display: flex; gap: 10px; margin-bottom: 16px; }
-    .tabs button {
-      margin-top: 0; padding: 12px; font-size: 14px;
-      background: transparent; color: #8a8578;
-      border: 1px solid rgba(255,255,255,.12); box-shadow: none;
-    }
-    .tabs button.active {
-      background: linear-gradient(135deg, #c9a55c, #e2c78a);
-      color: #1a1610; border-color: transparent;
-      box-shadow: 0 3px 12px rgba(212,175,106,.25);
-    }
-    .agg-cast {
-      font-weight: bold; margin-top: 14px; font-size: 15px;
-      color: #e8dcc0; letter-spacing: .05em;
-    }
-    .agg-item { font-size: 13px; color: #9a9384; padding-left: 14px; line-height: 1.7; }
-    .del { color: #c07a7a; font-size: 18px; padding: 4px 8px; background: none; width: auto; margin: 0; box-shadow: none; }
-  </style>
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+  }
+  .card {
+    max-width: 640px;
+    margin: 0 auto;
+    background: var(--card);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  }
+  h1 { font-size: 19px; margin: 0 0 16px; }
+  label { display: block; font-size: 14px; color: var(--sub); margin: 14px 0 6px; }
+  input[type="text"] {
+    width: 100%;
+    padding: 13px 14px;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+  }
+  .toggle {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .toggle button {
+    flex: 1;
+    padding: 13px 0;
+    font-size: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .toggle button.active {
+    background: var(--accent);
+    color: var(--accent-text);
+    border-color: var(--accent);
+    font-weight: bold;
+  }
+  .hint {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--sub);
+  }
+  .hint.err { color: var(--ng); }
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .actions button {
+    flex: 1;
+    padding: 15px 0;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+  }
+  #btnCopy {
+    background: var(--accent);
+    color: var(--accent-text);
+  }
+  #btnCopy:disabled { opacity: .45; }
+  textarea {
+    width: 100%;
+    margin-top: 16px;
+    min-height: 420px;
+    padding: 14px;
+    font-size: 14.5px;
+    line-height: 1.7;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--preview-bg);
+    color: var(--text);
+    resize: vertical;
+  }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: var(--accent-text);
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: bold;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s;
+  }
+  .toast.show { opacity: 1; }
+</style>
 </head>
 <body>
-  <h1>伝票集計</h1>
+<div class="card">
+  <h1>更新案内メール作成</h1>
 
-  <!-- 合言葉(初回のみ入力→端末に保存) -->
-  <div class="card" id="tokenCard" style="display:none;">
-    <label>合言葉</label>
-    <input id="token" type="password" placeholder="合言葉を入力">
-    <button class="sub" onclick="saveToken()">この端末に保存</button>
+  <label>お名前（様は自動でつく）</label>
+  <input type="text" id="inpName" placeholder="例）山田" autocomplete="off">
+
+  <label>契約満了日（コピペOK）</label>
+  <input type="text" id="inpDate" placeholder="例）2026年9月5日 / 9/5 / 2026-09-05" autocomplete="off">
+  <div class="hint" id="dateHint">対応形式: 2026年9月5日・9月5日・2026/9/5・9/5・2026-09-05（年なしは自動で今年/来年）</div>
+
+  <label>振込期日（満了日の何日前）</label>
+  <div class="toggle">
+    <button type="button" id="btn5" class="active">5日前</button>
+    <button type="button" id="btn10">10日前</button>
+  </div>
+  <div class="hint" id="deadlinePreview"></div>
+
+  <label>内勤名（差出人）</label>
+  <input type="text" id="inpSender" value="篠原" autocomplete="off">
+
+  <div class="actions">
+    <button type="button" id="btnCopy" disabled>コピー</button>
   </div>
 
-  <div class="tabs">
-    <button id="tabScan" class="active" onclick="switchTab('scan')">📷 読み取り</button>
-    <button id="tabAgg" onclick="switchTab('agg')">📊 集計</button>
-  </div>
+  <textarea id="outText" placeholder="名前と満了日を入れると本文がここに出るよ"></textarea>
+</div>
 
-  <!-- 読み取りタブ -->
-  <div id="paneScan">
-    <div class="card">
-      <input type="file" id="photo" accept="image/*" multiple onchange="onPhoto()">
-      <button id="parseBtn" onclick="parsePhoto()" disabled>AIで読み取る</button>
-    </div>
-    <div id="results"></div>
-    <button id="saveBtn" onclick="save()" style="display:none;">シートに保存する</button>
-    <div id="status"></div>
-  </div>
+<div class="toast" id="toast">コピーしたよ</div>
 
-  <!-- 集計タブ -->
-  <div id="paneAgg" style="display:none;">
-    <div class="card">
-      <div class="head-inputs">
-        <div><label>開始 (例 7/1)</label><input id="dateFrom" placeholder="7/1"></div>
-        <div><label>終了 (例 7/31)</label><input id="dateTo" placeholder="7/31"></div>
-      </div>
-      <button onclick="runAgg()">集計する</button>
-    </div>
-    <div id="aggResult"></div>
-  </div>
+<script>
+  let offset = 5;
 
-  <script>
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxQCA73By2joXzDDDnGQgwOk8tXB_Lghk6epIRXhja7NxMhaCyqi8FqOcVnwfcXHREK/exec'; // ← デプロイ後のURL
+  const inpName = document.getElementById('inpName');
+  const inpDate = document.getElementById('inpDate');
+  const inpSender = document.getElementById('inpSender');
+  const btn5 = document.getElementById('btn5');
+  const btn10 = document.getElementById('btn10');
+  const outText = document.getElementById('outText');
+  const btnCopy = document.getElementById('btnCopy');
+  const deadlinePreview = document.getElementById('deadlinePreview');
+  const dateHint = document.getElementById('dateHint');
+  const toast = document.getElementById('toast');
 
-    let imgList = [];
-    let parsed = null; // {receipts:[...]}
+  // 前回使った内勤名を覚えておく(このブラウザ内だけ)
+  try {
+    const saved = localStorage.getItem('koushin_sender');
+    if (saved) inpSender.value = saved;
+  } catch (e) {}
 
-    // ---- 合言葉管理 ----
-    function getToken() { return localStorage.getItem('denpyo_token') || ''; }
-    function saveToken() {
-      localStorage.setItem('denpyo_token', document.getElementById('token').value.trim());
-      document.getElementById('tokenCard').style.display = 'none';
-      setStatus('合言葉を保存したよ', true);
+  // 全角数字→半角に直してから日付を解釈する
+  function normalize(s) {
+    return s.replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+            .replace(/[／]/g, '/')
+            .replace(/[．]/g, '.')
+            .replace(/[－ー―]/g, '-')
+            .replace(/\s+/g, '');
+  }
+
+  // いろんな形式の日付文字列をDateにする。ダメならnull
+  function parseDate(raw) {
+    const s = normalize(raw);
+    if (!s) return null;
+
+    let y = null, m = null, d = null;
+    let match;
+
+    // 2026年9月5日 / 9月5日
+    if ((match = s.match(/^(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日?$/))) {
+      y = match[1] ? Number(match[1]) : null;
+      m = Number(match[2]);
+      d = Number(match[3]);
     }
-    if (!getToken()) document.getElementById('tokenCard').style.display = '';
+    // 2026/9/5, 2026-9-5, 2026.9.5
+    else if ((match = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/))) {
+      y = Number(match[1]);
+      m = Number(match[2]);
+      d = Number(match[3]);
+    }
+    // 9/5, 9-5, 9.5
+    else if ((match = s.match(/^(\d{1,2})[\/\-.](\d{1,2})$/))) {
+      m = Number(match[1]);
+      d = Number(match[2]);
+    }
+    // 20260905 / 0905
+    else if ((match = s.match(/^(\d{4})(\d{2})(\d{2})$/))) {
+      y = Number(match[1]);
+      m = Number(match[2]);
+      d = Number(match[3]);
+    }
+    else if ((match = s.match(/^(\d{2})(\d{2})$/))) {
+      m = Number(match[1]);
+      d = Number(match[2]);
+    }
+    else {
+      return null;
+    }
 
-    // ---- GAS通信(text/plainでプリフライト回避) ----
-    function callApi(payload) {
-      payload.token = getToken();
-      return fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(payload)
-      })
-      .then(r => r.json())
-      .then(res => {
-        if (!res.ok) throw new Error(res.error);
-        return res.result;
+    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+
+    // 年が無ければ今年。ただしその日付が既に過去なら来年扱い(満了日は未来のはずなので)
+    if (y === null) {
+      const now = new Date();
+      y = now.getFullYear();
+      const candidate = new Date(y, m - 1, d);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (candidate < today) y += 1;
+    }
+
+    const date = new Date(y, m - 1, d);
+    // 2月31日みたいな存在しない日付を弾く
+    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return null;
+    return date;
+  }
+
+  function fmtFull(d) {
+    return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  }
+  function fmtMD(d) {
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  }
+
+  function buildBody(name, endDate, payDate, sender) {
+    return name + '様\n'
+      + 'いつもセラピスト活動ご苦労様です。\n'
+      + '\n'
+      + 'また帝の業務にご協力頂きありがとうございます。\n'
+      + '帝事務局の' + sender + 'です。\n'
+      + '\n'
+      + '入れ違いの連絡であれば申し訳ありません。\n'
+      + '\n'
+      + 'また、更新費の免除条件をクリアされている方は入れ違いの連絡ですのでお手数ですが条件クリアの旨をご返信お願いします。\n'
+      + '\n'
+      + 'さて早いもので' + fmtFull(endDate) + 'にて\n'
+      + '貴殿とのセラピスト業務委託契約が満了となります。\n'
+      + '\n'
+      + '3か月間の成果はいかがでしたでしょうか？\n'
+      + '充実したものだったでしょうか？\n'
+      + '\n'
+      + '中々、思うような結果が得られなかった方は、技術スキル向上のための再講習などバックアップ態勢も準備させて頂いております。\n'
+      + '\n'
+      + 'ご要望があればお気軽に事務局までお問い合わせください。\n'
+      + '\n'
+      + '\n'
+      + 'つきましてはセラピスト契約を更新される場合は3ヶ月分10,000円の更新料をお納めいただきまして、セラピスト登録を3ヶ月継続更新させていただきます。\n'
+      + '\n'
+      + 'セラピスト契約の更新を希望されない場合は『更新しません』と返信ください。\n'
+      + '\n'
+      + '更新される際の振込先は、\n'
+      + '\n'
+      + 'ーーーーーーーーー\n'
+      + 'セブン銀行\n'
+      + 'ポインセチア支店\n'
+      + '普通（112）\n'
+      + '3785603\n'
+      + 'サダキョウ　トシキ\n'
+      + 'ーーーーーーーーー\n'
+      + '\n'
+      + 'こちらへ' + fmtMD(payDate) + 'までに更新料10,000円を振り込みの上、詳細メールの送信をお願いします。（3ヶ月間で20ポイント以上獲得（初回更新の方は10ポイント獲得）で免除が可能です。直近の売上があれば相殺も可です。\n'
+      + '）\n'
+      + '\n'
+      + 'よろしくお願いします。\n'
+      + '帝事務局　' + sender;
+  }
+
+  function update() {
+    const name = inpName.value.trim();
+    const raw = inpDate.value.trim();
+    const sender = inpSender.value.trim() || '篠原';
+
+    try { localStorage.setItem('koushin_sender', inpSender.value.trim()); } catch (e) {}
+
+    if (!raw) {
+      dateHint.textContent = '対応形式: 2026年9月5日・9月5日・2026/9/5・9/5・2026-09-05（年なしは自動で今年/来年）';
+      dateHint.classList.remove('err');
+      deadlinePreview.textContent = '';
+      outText.value = '';
+      btnCopy.disabled = true;
+      return;
+    }
+
+    const endDate = parseDate(raw);
+    if (!endDate) {
+      dateHint.textContent = '日付として読めなかった…形式を確認してみて';
+      dateHint.classList.add('err');
+      deadlinePreview.textContent = '';
+      outText.value = '';
+      btnCopy.disabled = true;
+      return;
+    }
+
+    dateHint.textContent = '→ 満了日: ' + fmtFull(endDate);
+    dateHint.classList.remove('err');
+
+    const payDate = new Date(endDate);
+    payDate.setDate(payDate.getDate() - offset);
+    deadlinePreview.textContent = '→ 振込期日: ' + fmtFull(payDate);
+
+    if (!name) {
+      outText.value = '';
+      btnCopy.disabled = true;
+      return;
+    }
+
+    outText.value = buildBody(name, endDate, payDate, sender);
+    btnCopy.disabled = false;
+  }
+
+  function setOffset(v) {
+    offset = v;
+    btn5.classList.toggle('active', v === 5);
+    btn10.classList.toggle('active', v === 10);
+    update();
+  }
+
+  btn5.addEventListener('click', () => setOffset(5));
+  btn10.addEventListener('click', () => setOffset(10));
+  inpName.addEventListener('input', update);
+  inpDate.addEventListener('input', update);
+  inpSender.addEventListener('input', update);
+
+  btnCopy.addEventListener('click', () => {
+    const doToast = () => {
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(outText.value).then(doToast).catch(() => {
+        outText.select();
+        document.execCommand('copy');
+        doToast();
       });
+    } else {
+      outText.select();
+      document.execCommand('copy');
+      doToast();
     }
-
-    function switchTab(t) {
-      document.getElementById('paneScan').style.display = t === 'scan' ? '' : 'none';
-      document.getElementById('paneAgg').style.display = t === 'agg' ? '' : 'none';
-      document.getElementById('tabScan').className = t === 'scan' ? 'active' : '';
-      document.getElementById('tabAgg').className = t === 'agg' ? 'active' : '';
-    }
-
-    function setStatus(msg, ok) {
-      const el = document.getElementById('status');
-      el.textContent = msg;
-      el.className = ok ? 'ok' : 'ng';
-    }
-
-    // 写真選択(複数可) → それぞれ縮小してbase64化
-    function onPhoto() {
-      const files = Array.from(document.getElementById('photo').files);
-      if (!files.length) return;
-      imgList = [];
-      let done = 0;
-      files.forEach((file, idx) => {
-        const img = new Image();
-        img.onload = () => {
-          const MAX = 1568;
-          let w = img.width, h = img.height;
-          if (Math.max(w, h) > MAX) {
-            const r = MAX / Math.max(w, h);
-            w = Math.round(w * r); h = Math.round(h * r);
-          }
-          const cv = document.createElement('canvas');
-          cv.width = w; cv.height = h;
-          cv.getContext('2d').drawImage(img, 0, 0, w, h);
-          imgList[idx] = cv.toDataURL('image/jpeg', 0.85).split(',')[1];
-          done++;
-          if (done === files.length) {
-            setStatus(files.length + '枚読み込んだよ', true);
-            document.getElementById('parseBtn').disabled = false;
-          }
-        };
-        img.src = URL.createObjectURL(file);
-      });
-    }
-
-    // 写真を1枚ずつAIに読ませて結果を結合
-    async function parsePhoto() {
-      const btn = document.getElementById('parseBtn');
-      btn.disabled = true;
-      parsed = { receipts: [] };
-      try {
-        for (let i = 0; i < imgList.length; i++) {
-          setStatus('AIが読み取り中... (' + (i + 1) + '/' + imgList.length + '枚目)', true);
-          const res = await callApi({ action: 'parse', image: imgList[i], mime: 'image/jpeg' });
-          parsed.receipts = parsed.receipts.concat(res.receipts || []);
-        }
-        renderResults();
-        setStatus('全部読み取ったよ！確認して修正してね', true);
-      } catch (err) {
-        setStatus('エラー: ' + err.message, false);
-      }
-      btn.disabled = false;
-    }
-
-    // 確認・修正用の編集テーブルを描画
-    function renderResults() {
-      const wrap = document.getElementById('results');
-      wrap.innerHTML = '';
-      (parsed.receipts || []).forEach((r, ri) => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <h2>伝票 ${ri + 1}</h2>
-          <div class="head-inputs">
-            <div><label>日付</label><input value="${esc(r.date)}" oninput="parsed.receipts[${ri}].date=this.value"></div>
-            <div><label>時刻</label><input value="${esc(r.time)}" oninput="parsed.receipts[${ri}].time=this.value"></div>
-            <div><label>客名</label><input value="${esc(r.customer)}" oninput="parsed.receipts[${ri}].customer=this.value"></div>
-          </div>
-          <table>
-            <tr><th>品名</th><th>キャスト</th><th>数</th><th>金額</th><th></th></tr>
-            <tbody id="items-${ri}"></tbody>
-          </table>
-          <button class="sub" onclick="addItem(${ri})">＋ 行を追加</button>
-          <label>伝票の合計金額(照合用)</label>
-          <input class="num" id="total-${ri}" value="${r.total ?? ''}" oninput="parsed.receipts[${ri}].total=Number(this.value)||0; checkTotal(${ri})" style="width:120px;">
-          <div class="warn" id="warn-${ri}"></div>`;
-        wrap.appendChild(card);
-        r.items.forEach((it, ii) => renderItemRow(ri, ii));
-        checkTotal(ri);
-      });
-      document.getElementById('saveBtn').style.display = (parsed.receipts || []).length ? '' : 'none';
-    }
-
-    function renderItemRow(ri, ii) {
-      const it = parsed.receipts[ri].items[ii];
-      const tbody = document.getElementById('items-' + ri);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><input value="${esc(it.name)}" oninput="upd(${ri},${ii},'name',this.value)"></td>
-        <td><input value="${esc(it.cast)}" oninput="upd(${ri},${ii},'cast',this.value)"></td>
-        <td><input class="num" type="number" value="${it.qty ?? ''}" oninput="upd(${ri},${ii},'qty',Number(this.value))"></td>
-        <td><input class="num" type="number" value="${it.amount ?? ''}" oninput="upd(${ri},${ii},'amount',Number(this.value))"></td>
-        <td><button class="del" onclick="delItem(${ri},${ii})">✕</button></td>`;
-      tbody.appendChild(tr);
-    }
-
-    function upd(ri, ii, key, val) {
-      parsed.receipts[ri].items[ii][key] = val;
-      checkTotal(ri);
-    }
-    function addItem(ri) {
-      parsed.receipts[ri].items.push({ name: '', cast: '', qty: 1, unit: 0, amount: 0 });
-      redrawItems(ri);
-    }
-    function delItem(ri, ii) {
-      parsed.receipts[ri].items.splice(ii, 1);
-      redrawItems(ri);
-    }
-    function redrawItems(ri) {
-      document.getElementById('items-' + ri).innerHTML = '';
-      parsed.receipts[ri].items.forEach((it, ii) => renderItemRow(ri, ii));
-      checkTotal(ri);
-    }
-
-    // 明細合計と伝票合計の照合
-    function checkTotal(ri) {
-      const r = parsed.receipts[ri];
-      const sum = r.items.reduce((a, it) => a + (Number(it.amount) || 0), 0);
-      const warn = document.getElementById('warn-' + ri);
-      if (r.total && sum !== Number(r.total)) {
-        warn.textContent = `⚠ 明細合計 ${sum.toLocaleString()}円 ≠ 伝票合計 ${Number(r.total).toLocaleString()}円(差額 ${(r.total - sum).toLocaleString()}円)`;
-      } else {
-        warn.textContent = '';
-      }
-    }
-
-    function save() {
-      const btn = document.getElementById('saveBtn');
-      btn.disabled = true;
-      setStatus('保存中...', true);
-      callApi({ action: 'save', receipts: parsed.receipts })
-        .then(res => {
-          btn.disabled = false;
-          setStatus(res.added + '行 保存したよ！', true);
-          document.getElementById('results').innerHTML = '';
-          btn.style.display = 'none';
-          document.getElementById('photo').value = '';
-          document.getElementById('parseBtn').disabled = true;
-        })
-        .catch(err => {
-          btn.disabled = false;
-          setStatus('エラー: ' + err.message, false);
-        });
-    }
-
-    function runAgg() {
-      const wrap = document.getElementById('aggResult');
-      wrap.innerHTML = '<div class="card">集計中...</div>';
-      callApi({
-        action: 'agg',
-        dateFrom: document.getElementById('dateFrom').value.trim(),
-        dateTo: document.getElementById('dateTo').value.trim()
-      })
-        .then(res => {
-          let html = '<div class="card"><h2>キャスト別集計</h2>';
-          const casts = Object.keys(res.byCast).sort((a, b) => res.byCast[b].amount - res.byCast[a].amount);
-          if (!casts.length) html += '<div>データなし</div>';
-          casts.forEach(c => {
-            const d = res.byCast[c];
-            html += `<div class="agg-cast">${esc(c)}: ${d.amount.toLocaleString()}円 (${d.count}点)</div>`;
-            Object.keys(d.items).forEach(n => {
-              html += `<div class="agg-item">${esc(n)} × ${d.items[n]}</div>`;
-            });
-          });
-          html += `<div class="agg-cast" style="border-top:1px solid rgba(212,175,106,.3);padding-top:10px;margin-top:12px;">総合計: ${res.grandTotal.toLocaleString()}円</div></div>`;
-          wrap.innerHTML = html;
-        })
-        .catch(err => {
-          wrap.innerHTML = `<div class="card ng">エラー: ${esc(err.message)}</div>`;
-        });
-    }
-
-    function esc(s) {
-      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    }
-  </script>
+  });
+</script>
 </body>
 </html>
