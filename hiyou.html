@@ -43,7 +43,12 @@
     th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid #eee; }
     th { color: #666; font-weight: normal; }
     .total-row td { font-weight: bold; }
-    .month-label { margin: 8px 0 4px; font-weight: bold; }
+    .month-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 4px; }
+    .month-tab {
+      flex: none; padding: 8px 14px; font-size: 14px; border-radius: 20px;
+      border: 1px solid #1e5aa8; background: #fff; color: #1e5aa8; cursor: pointer; white-space: nowrap;
+    }
+    .month-tab.active { background: #1e5aa8; color: #fff; }
   </style>
 </head>
 <body>
@@ -58,6 +63,8 @@
     const PASSCODE = 'harumi2026'; // Code.gsのCONFIG.PASSCODEと揃える
 
     let currentStoreId = null;
+    let dashboardData = null;
+    let activeMonth = null;
 
     function callApi(action, extra) {
       return fetch(GAS_URL, {
@@ -114,6 +121,8 @@
           <input id="tantoName" placeholder="例: 原口">
           <label>売上</label>
           <input id="uriage" type="number" placeholder="例: 40000">
+          <label>その他</label>
+          <input id="other" placeholder="任意メモ">
           <button class="submit" id="submitBtn" onclick="submitExpense()">この店舗に登録</button>
           <div id="status"></div>
         </div>
@@ -135,7 +144,6 @@
           const amt = amountMap[sel.value];
           if (amt) document.getElementById('uriage').value = amt;
         };
-        // 初期表示分もセット
         if (sel.value && amountMap[sel.value]) {
           document.getElementById('uriage').value = amountMap[sel.value];
         }
@@ -148,6 +156,7 @@
         therapistName: document.getElementById('therapistName').value.trim(),
         tantoName: document.getElementById('tantoName').value.trim(),
         uriage: document.getElementById('uriage').value,
+        other: document.getElementById('other').value.trim(),
       };
       const btn = document.getElementById('submitBtn');
       btn.disabled = true;
@@ -160,38 +169,63 @@
           document.getElementById('therapistName').value = '';
           document.getElementById('tantoName').value = '';
           document.getElementById('uriage').value = '';
+          document.getElementById('other').value = '';
         } else {
           setStatus('エラー: ' + res.error, false);
         }
       }).catch(err => { btn.disabled = false; setStatus('通信エラー: ' + err, false); });
     }
 
-    // ---------- ダッシュボード(月ごと) ----------
+    // ---------- ダッシュボード(月タブ切り替え) ----------
     function renderDashboard() {
       document.getElementById('app').innerHTML = `
         <button class="back" onclick="renderHome()">← 戻る</button>
         <h1>ダッシュボード</h1>
+        <div id="monthTabs" class="month-tabs"></div>
         <div class="card" id="dashCard">集計中...</div>
       `;
       callApi('dashboard').then(res => {
-        const card = document.getElementById('dashCard');
-        if (!res.ok) { card.innerHTML = 'エラー: ' + res.error; return; }
-        const data = res.result;
-        let html = `<h2>全店舗合計: ${data.grandTotal.toLocaleString()}円</h2><br>`;
-        data.stores.forEach(s => {
-          html += `<h2>${s.name}${s.error ? '(' + s.error + ')' : ''} — 合計 ${s.total.toLocaleString()}円</h2>`;
-          (s.months || []).forEach(m => {
-            html += `<div class="month-label">${m.month}(${m.total.toLocaleString()}円)</div>`;
-            html += `<table><tr><th>費用の種類</th><th>金額</th></tr>`;
-            Object.keys(m.byType || {}).forEach(type => {
-              html += `<tr><td>${type}</td><td>${m.byType[type].toLocaleString()}円</td></tr>`;
-            });
-            html += `</table>`;
-          });
-          html += `<br>`;
-        });
-        card.innerHTML = html;
+        if (!res.ok) { document.getElementById('dashCard').innerHTML = 'エラー: ' + res.error; return; }
+        dashboardData = res.result;
+        const months = dashboardData.allMonths || [];
+        activeMonth = months[0] || null;
+
+        document.getElementById('monthTabs').innerHTML = months.map(m =>
+          `<button class="month-tab" data-month="${m}" onclick="selectMonth('${m}')">${m}</button>`
+        ).join('');
+
+        renderMonth();
       });
+    }
+
+    function selectMonth(month) {
+      activeMonth = month;
+      renderMonth();
+    }
+
+    function renderMonth() {
+      document.querySelectorAll('.month-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.month === activeMonth);
+      });
+
+      const card = document.getElementById('dashCard');
+      if (!activeMonth) { card.innerHTML = 'データがありません'; return; }
+
+      let monthGrandTotal = 0;
+      let html = '';
+      dashboardData.stores.forEach(s => {
+        const m = (s.months || {})[activeMonth];
+        if (!m) return;
+        monthGrandTotal += m.total;
+        html += `<h2>${s.name} — ${m.total.toLocaleString()}円</h2>`;
+        html += `<table><tr><th>費用の種類</th><th>金額</th></tr>`;
+        Object.keys(m.byType || {}).forEach(type => {
+          html += `<tr><td>${type}</td><td>${m.byType[type].toLocaleString()}円</td></tr>`;
+        });
+        html += `</table><br>`;
+      });
+
+      card.innerHTML = `<h2>${activeMonth} 全店舗合計: ${monthGrandTotal.toLocaleString()}円</h2><br>` + (html || '該当データなし');
     }
 
     renderHome();
