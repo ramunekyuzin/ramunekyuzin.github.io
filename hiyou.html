@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>費用シート統合入力</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: #f5f6f8; color: #222;
+      padding: 24px; max-width: 640px; margin: 0 auto;
+    }
+    h1 { font-size: 22px; margin-bottom: 20px; }
+    h2 { font-size: 18px; margin-bottom: 12px; }
+    .card {
+      background: #fff; border-radius: 12px; padding: 20px;
+      margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .store-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .store-btn {
+      padding: 18px 10px; font-size: 16px; font-weight: bold;
+      border: none; border-radius: 10px; background: #1e5aa8; color: #fff; cursor: pointer;
+    }
+    .store-btn:hover { opacity: .85; }
+    .top-actions { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+    .link-btn { background: none; border: none; color: #1e5aa8; font-size: 14px; cursor: pointer; text-decoration: underline; }
+    label { display: block; font-size: 14px; margin-bottom: 6px; color: #555; }
+    input, select {
+      width: 100%; padding: 12px; font-size: 16px;
+      border: 1px solid #ccc; border-radius: 8px; margin-bottom: 14px;
+    }
+    button.submit {
+      width: 100%; padding: 15px; font-size: 16px; font-weight: bold;
+      border: none; border-radius: 10px; background: #1e5aa8; color: #fff; cursor: pointer;
+    }
+    button.submit:disabled { background: #aaa; }
+    button.back { background: none; border: none; color: #666; font-size: 14px; margin-bottom: 12px; cursor: pointer; }
+    #status { text-align: center; font-size: 14px; margin-top: 10px; min-height: 20px; }
+    .ok { color: #1a8a3c; } .ng { color: #c0392b; }
+    .today-badge { display: inline-block; background: #eef3fb; color: #1e5aa8; padding: 4px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid #eee; }
+    th { color: #666; font-weight: normal; }
+    .total-row td { font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div id="app">読み込み中...</div>
+
+  <script>
+    // ============================================
+    // GASのWebアプリURL
+    // ============================================
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwMFMK3b382kZuSQPn6o8Uf3c4YQJGwHaz41HkG2J5N5geHOPCyIvvPMppnOvT-Oxg-/exec';
+    const PASSCODE = 'harumi2026'; // Code.gsのCONFIG.PASSCODEと揃える
+
+    let currentStoreId = null;
+
+    function callApi(action, extra) {
+      return fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(Object.assign({ action: action, passcode: PASSCODE }, extra || {}))
+      }).then(r => r.json());
+    }
+
+    function setStatus(msg, ok) {
+      const el = document.getElementById('status');
+      if (!el) return;
+      el.textContent = msg;
+      el.className = ok ? 'ok' : 'ng';
+    }
+
+    // ---------- トップ画面 ----------
+    function renderHome() {
+      document.getElementById('app').innerHTML = `
+        <h1>費用シート統合入力</h1>
+        <div class="top-actions"><button class="link-btn" onclick="renderDashboard()">📊 ダッシュボードを見る</button></div>
+        <div class="card">
+          <h2>店舗を選択</h2>
+          <div class="store-grid" id="storeGrid">読み込み中...</div>
+        </div>
+      `;
+      callApi('stores').then(res => {
+        const grid = document.getElementById('storeGrid');
+        if (!res.ok) { grid.innerHTML = 'エラー: ' + res.error; return; }
+        const stores = res.result;
+        if (!stores.length) { grid.innerHTML = '店舗が登録されていません(店舗マスタシートに追加してください)'; return; }
+        grid.innerHTML = stores.map(s =>
+          `<button class="store-btn" onclick='openStore(${JSON.stringify(s.id)}, ${JSON.stringify(s.name)})'>${s.name}</button>`
+        ).join('');
+      });
+    }
+
+    // ---------- 入力フォーム ----------
+    function openStore(storeId, storeName) {
+      currentStoreId = storeId;
+      const today = new Date();
+      const todayStr = (today.getMonth() + 1) + '/' + today.getDate();
+
+      document.getElementById('app').innerHTML = `
+        <button class="back" onclick="renderHome()">← 店舗選択に戻る</button>
+        <h1>${storeName}</h1>
+        <div class="card">
+          <span class="today-badge">本日: ${todayStr}</span>
+          <label>費用の種類</label>
+          <select id="expenseType">読み込み中...</select>
+          <label>セラピスト名</label>
+          <input id="therapistName" placeholder="例: 真夜">
+          <label>担当者</label>
+          <input id="tantoName" placeholder="例: 原口">
+          <label>売上</label>
+          <input id="uriage" type="number" placeholder="例: 40000">
+          <button class="submit" id="submitBtn" onclick="submitExpense()">この店舗に登録</button>
+          <div id="status"></div>
+        </div>
+      `;
+
+      callApi('types', { storeId: storeId }).then(res => {
+        const sel = document.getElementById('expenseType');
+        const types = res.ok ? res.result : [];
+        sel.innerHTML = types.length
+          ? types.map(t => `<option value="${t}">${t}</option>`).join('')
+          : '<option value="">(プルダウンが見つかりません。手入力してください)</option>';
+      });
+    }
+
+    function submitExpense() {
+      const data = {
+        expenseType: document.getElementById('expenseType').value,
+        therapistName: document.getElementById('therapistName').value.trim(),
+        tantoName: document.getElementById('tantoName').value.trim(),
+        uriage: document.getElementById('uriage').value,
+      };
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      setStatus('送信中...', true);
+
+      callApi('add', { storeId: currentStoreId, data: data }).then(res => {
+        btn.disabled = false;
+        if (res.ok) {
+          setStatus(res.result.sheetName + ' に登録したよ!', true);
+          document.getElementById('therapistName').value = '';
+          document.getElementById('tantoName').value = '';
+          document.getElementById('uriage').value = '';
+        } else {
+          setStatus('エラー: ' + res.error, false);
+        }
+      }).catch(err => { btn.disabled = false; setStatus('通信エラー: ' + err, false); });
+    }
+
+    // ---------- ダッシュボード ----------
+    function renderDashboard() {
+      document.getElementById('app').innerHTML = `
+        <button class="back" onclick="renderHome()">← 戻る</button>
+        <h1>ダッシュボード</h1>
+        <div class="card" id="dashCard">集計中...</div>
+      `;
+      callApi('dashboard').then(res => {
+        const card = document.getElementById('dashCard');
+        if (!res.ok) { card.innerHTML = 'エラー: ' + res.error; return; }
+        const data = res.result;
+        let html = `<h2>全店舗合計: ${data.grandTotal.toLocaleString()}円</h2><br>`;
+        data.stores.forEach(s => {
+          html += `<h2>${s.name}${s.error ? '(' + s.error + ')' : ''}</h2>`;
+          html += `<table><tr><th>費用の種類</th><th>金額</th></tr>`;
+          Object.keys(s.byType || {}).forEach(type => {
+            html += `<tr><td>${type}</td><td>${s.byType[type].toLocaleString()}円</td></tr>`;
+          });
+          html += `<tr class="total-row"><td>合計</td><td>${s.total.toLocaleString()}円</td></tr></table><br>`;
+        });
+        card.innerHTML = html;
+      });
+    }
+
+    renderHome();
+  </script>
+</body>
+</html>
