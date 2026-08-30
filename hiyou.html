@@ -43,6 +43,7 @@
     th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid #eee; }
     th { color: #666; font-weight: normal; }
     .total-row td { font-weight: bold; }
+    .month-label { margin: 8px 0 4px; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -165,7 +166,7 @@
       }).catch(err => { btn.disabled = false; setStatus('通信エラー: ' + err, false); });
     }
 
-    // ---------- ダッシュボード ----------
+    // ---------- ダッシュボード(月ごと) ----------
     function renderDashboard() {
       document.getElementById('app').innerHTML = `
         <button class="back" onclick="renderHome()">← 戻る</button>
@@ -178,12 +179,16 @@
         const data = res.result;
         let html = `<h2>全店舗合計: ${data.grandTotal.toLocaleString()}円</h2><br>`;
         data.stores.forEach(s => {
-          html += `<h2>${s.name}${s.error ? '(' + s.error + ')' : ''}</h2>`;
-          html += `<table><tr><th>費用の種類</th><th>金額</th></tr>`;
-          Object.keys(s.byType || {}).forEach(type => {
-            html += `<tr><td>${type}</td><td>${s.byType[type].toLocaleString()}円</td></tr>`;
+          html += `<h2>${s.name}${s.error ? '(' + s.error + ')' : ''} — 合計 ${s.total.toLocaleString()}円</h2>`;
+          (s.months || []).forEach(m => {
+            html += `<div class="month-label">${m.month}(${m.total.toLocaleString()}円)</div>`;
+            html += `<table><tr><th>費用の種類</th><th>金額</th></tr>`;
+            Object.keys(m.byType || {}).forEach(type => {
+              html += `<tr><td>${type}</td><td>${m.byType[type].toLocaleString()}円</td></tr>`;
+            });
+            html += `</table>`;
           });
-          html += `<tr class="total-row"><td>合計</td><td>${s.total.toLocaleString()}円</td></tr></table><br>`;
+          html += `<br>`;
         });
         card.innerHTML = html;
       });
