@@ -129,7 +129,7 @@
       `;
 
       let amountMap = {};
-      callApi('amounts').then(res => {
+      callApi('amounts', { storeId: storeId }).then(res => {
         if (res.ok) amountMap = res.result;
       });
 
