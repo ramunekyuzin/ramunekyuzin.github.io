@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>面接→デビュー移動ツール</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: #f5f6f8; color: #222;
+      padding: 16px; max-width: 560px; margin: 0 auto;
+    }
+    h1 { font-size: 18px; margin-bottom: 14px; }
+    h2 { font-size: 15px; margin-bottom: 10px; color: #333; }
+    .tabs { display: flex; margin-bottom: 14px; border-radius: 10px; overflow: hidden; border: 1px solid #ccc; }
+    .tab { flex: 1; text-align: center; padding: 12px; background: #fff; font-size: 14px; font-weight: bold; color: #666; }
+    .tab.active { background: #1e5aa8; color: #fff; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card {
+      background: #fff; border-radius: 12px; padding: 16px;
+      margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    label { display: block; font-size: 13px; margin-bottom: 6px; color: #555; }
+    input, select, textarea {
+      width: 100%; padding: 14px; font-size: 16px;
+      border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px;
+    }
+    button {
+      width: 100%; padding: 16px; font-size: 16px; font-weight: bold;
+      border: none; border-radius: 10px; background: #1e5aa8; color: #fff;
+    }
+    button.secondary { background: #6b7280; }
+    button:active { opacity: .8; }
+    button:disabled { background: #aaa; }
+    #status1, #status2 { text-align: center; font-size: 14px; margin-top: 10px; min-height: 20px; }
+    .ok { color: #1a8a3c; } .ng { color: #c0392b; }
+    .info-box {
+      background: #f0f4fa; border-radius: 8px; padding: 12px;
+      font-size: 13px; line-height: 1.7; margin-bottom: 14px; color: #333;
+    }
+    .info-box b { color: #1e5aa8; }
+    .reload { font-size: 12px; color: #1e5aa8; text-align: right; display: block; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h1>面接 → デビュー 移動ツール</h1>
+
+  <div class="tabs">
+    <div class="tab active" id="tabMove" onclick="switchTab('move')">デビュー登録</div>
+    <div class="tab" id="tabAdd" onclick="switchTab('add')">面接を追加</div>
+  </div>
+
+  <!-- ============ デビュー登録パネル ============ -->
+  <div class="panel active" id="panelMove">
+    <div class="card">
+      <a class="reload" onclick="loadInterviews()">🔄 リストを更新</a>
+      <label>面接進捗から選ぶ</label>
+      <select id="interviewSelect" onchange="onSelectInterview()">
+        <option value="">-- 選択してください --</option>
+      </select>
+
+      <div id="previewBox" class="info-box" style="display:none;"></div>
+
+      <div id="extraFieldsBox"></div>
+
+      <button id="registerBtn" onclick="submitRegister()" disabled>この内容でデビュー登録して面接リストから削除</button>
+      <div id="status1"></div>
+    </div>
+  </div>
+
+  <!-- ============ 面接追加パネル ============ -->
+  <div class="panel" id="panelAdd">
+    <div class="card">
+      <label>面接日</label>
+      <input id="add_面接日" placeholder="例: 2026/09/20 または 9/20">
+      <label>所属</label>
+      <input id="add_所属" placeholder="例: 千葉店">
+      <label>時間</label>
+      <input id="add_時間" placeholder="例: 15:00">
+      <label>面接担当者</label>
+      <input id="add_面接担当者" placeholder="例: 於口">
+      <label>応募者</label>
+      <input id="add_応募者" placeholder="例: 田中太郎">
+      <button onclick="submitAdd()">面接進捗に追加</button>
+      <div id="status2"></div>
+    </div>
+  </div>
+
+  <script>
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxnk8l4W9RBL8BrtI3Fnm6SSMC12pXXH3TN-Su0-CifbYFop2Ng9FZzt8m9cQbMs0Qz/exec';
+    let interviewsCache = [];
+    let extraFields = ['セラピスト源氏名', '撮影日', '研修日', '研修種別', '研修担当'];
+
+    function switchTab(name) {
+      document.getElementById('tabMove').classList.toggle('active', name === 'move');
+      document.getElementById('tabAdd').classList.toggle('active', name === 'add');
+      document.getElementById('panelMove').classList.toggle('active', name === 'move');
+      document.getElementById('panelAdd').classList.toggle('active', name === 'add');
+    }
+
+    function callApi(action, extra) {
+      const payload = Object.assign({ action: action }, extra || {});
+      if (GAS_URL) {
+        return fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(payload) }).then(r => r.json());
+      } else {
+        return new Promise((resolve, reject) => {
+          const handler = google.script.run
+            .withSuccessHandler(result => resolve({ ok: true, result: result }))
+            .withFailureHandler(err => resolve({ ok: false, error: err.message }));
+          if (action === 'listInterviews') handler.listInterviews_run();
+          else if (action === 'addInterview') handler.addInterview_run(extra.data);
+          else if (action === 'registerDebut') handler.registerDebut_run(extra.row, extra.data);
+        });
+      }
+    }
+
+    function setStatus(id, msg, ok) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.className = ok ? 'ok' : 'ng';
+    }
+
+    function loadInterviews() {
+      setStatus('status1', '読み込み中...', true);
+      callApi('listInterviews').then(res => {
+        if (!res.ok) { setStatus('status1', 'エラー: ' + res.error, false); return; }
+        interviewsCache = res.result.rows;
+        extraFields = res.result.extraFields;
+        const sel = document.getElementById('interviewSelect');
+        sel.innerHTML = '<option value="">-- 選択してください --</option>';
+        interviewsCache.forEach(row => {
+          const opt = document.createElement('option');
+          opt.value = row._row;
+          opt.textContent = `${row['面接日'] || ''} / ${row['所属'] || ''} / ${row['応募者'] || ''}`;
+          sel.appendChild(opt);
+        });
+        setStatus('status1', '', true);
+      });
+    }
+
+    function onSelectInterview() {
+      const row = document.getElementById('interviewSelect').value;
+      const previewBox = document.getElementById('previewBox');
+      const extraBox = document.getElementById('extraFieldsBox');
+      const btn = document.getElementById('registerBtn');
+
+      if (!row) {
+        previewBox.style.display = 'none';
+        extraBox.innerHTML = '';
+        btn.disabled = true;
+        return;
+      }
+
+      const data = interviewsCache.find(r => String(r._row) === String(row));
+      previewBox.style.display = 'block';
+      previewBox.innerHTML =
+        `<b>面接日:</b> ${data['面接日'] || ''}<br>` +
+        `<b>所属→店舗:</b> ${data['所属'] || ''}<br>` +
+        `<b>面接担当者:</b> ${data['面接担当者'] || ''}<br>` +
+        `<b>応募者→セラピスト本名:</b> ${data['応募者'] || ''}`;
+
+      extraBox.innerHTML = '';
+      extraFields.forEach(name => {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = `<label>${name}</label><input id="extra_${name}" placeholder="${name}を入力">`;
+        extraBox.appendChild(wrap);
+      });
+
+      btn.disabled = false;
+    }
+
+    function submitRegister() {
+      const row = document.getElementById('interviewSelect').value;
+      if (!row) return;
+      const data = {};
+      extraFields.forEach(name => {
+        data[name] = document.getElementById('extra_' + name).value.trim();
+      });
+
+      const btn = document.getElementById('registerBtn');
+      btn.disabled = true;
+      setStatus('status1', '登録中...', true);
+
+      callApi('registerDebut', { row: Number(row), data: data }).then(res => {
+        if (res.ok) {
+          setStatus('status1', 'デビュー進捗に登録して、面接リストから削除したよ!', true);
+          document.getElementById('interviewSelect').value = '';
+          document.getElementById('previewBox').style.display = 'none';
+          document.getElementById('extraFieldsBox').innerHTML = '';
+          loadInterviews();
+        } else {
+          setStatus('status1', 'エラー: ' + res.error, false);
+          btn.disabled = false;
+        }
+      });
+    }
+
+    function submitAdd() {
+      const data = {
+        '面接日': document.getElementById('add_面接日').value.trim(),
+        '所属': document.getElementById('add_所属').value.trim(),
+        '時間': document.getElementById('add_時間').value.trim(),
+        '面接担当者': document.getElementById('add_面接担当者').value.trim(),
+        '応募者': document.getElementById('add_応募者').value.trim(),
+      };
+      if (!data['面接日'] || !data['応募者']) {
+        setStatus('status2', '面接日と応募者は必須だよ', false);
+        return;
+      }
+      setStatus('status2', '追加中...', true);
+      callApi('addInterview', { data: data }).then(res => {
+        if (res.ok) {
+          setStatus('status2', '面接進捗に追加したよ!', true);
+          ['面接日','所属','時間','面接担当者','応募者'].forEach(k => document.getElementById('add_' + k).value = '');
+          loadInterviews();
+        } else {
+          setStatus('status2', 'エラー: ' + res.error, false);
+        }
+      });
+    }
+
+    window.addEventListener('load', loadInterviews);
+  </script>
+</body>
+</html>
