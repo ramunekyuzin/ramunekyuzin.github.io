@@ -8,6 +8,10 @@
   * { box-sizing: border-box; }
   body { font-family: sans-serif; margin: 0; padding: 12px; background: #f5f5f5; }
   h1 { font-size: 18px; margin: 0 0 12px; }
+  .back-link {
+    display: inline-block; margin-bottom: 12px; font-size: 13px;
+    color: #1e5aa8; text-decoration: none;
+  }
   .card {
     background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 10px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;
@@ -28,6 +32,7 @@
 </style>
 </head>
 <body>
+<a class="back-link" href="./teitop.html">← 一覧に戻る</a>
 <h1>更新日10日以内チェックリスト</h1>
 <button id="copyBtn" onclick="copyEmails()">未送信のメアドをコピー</button>
 <div id="loading">読み込み中...</div>
