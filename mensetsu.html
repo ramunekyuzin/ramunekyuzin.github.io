@@ -165,7 +165,13 @@
       extraBox.innerHTML = '';
       extraFields.forEach(name => {
         const wrap = document.createElement('div');
-        wrap.innerHTML = `<label>${name}</label><input id="extra_${name}" placeholder="${name}を入力">`;
+        if (name === '研修種別') {
+          const options = ['', 'モニター', '男女講師', '女性講師マンツー', '2回研修', '未定'];
+          const optHtml = options.map(o => `<option value="${o}">${o || '-- 選択 --'}</option>`).join('');
+          wrap.innerHTML = `<label>${name}</label><select id="extra_${name}">${optHtml}</select>`;
+        } else {
+          wrap.innerHTML = `<label>${name}</label><input id="extra_${name}" placeholder="${name}を入力">`;
+        }
         extraBox.appendChild(wrap);
       });
 
