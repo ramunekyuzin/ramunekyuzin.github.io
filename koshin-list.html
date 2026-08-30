@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>更新日チェックリスト</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: sans-serif; margin: 0; padding: 12px; background: #f5f5f5; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  .card {
+    background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;
+  }
+  .card.urgent { border-left: 5px solid #e74c3c; }
+  .card.done { opacity: 0.5; }
+  .info { flex: 1; }
+  .name { font-weight: bold; font-size: 15px; }
+  .sub { font-size: 12px; color: #666; margin-top: 2px; }
+  .days { font-size: 12px; color: #e74c3c; font-weight: bold; }
+  input[type="checkbox"] { width: 24px; height: 24px; flex-shrink: 0; }
+  .email { font-size: 11px; color: #999; word-break: break-all; }
+  #copyBtn {
+    width: 100%; padding: 14px; font-size: 15px; background: #333; color: #fff;
+    border: none; border-radius: 8px; margin-bottom: 12px;
+  }
+  #loading { text-align: center; padding: 40px; color: #999; }
+  #empty { text-align: center; padding: 40px; color: #999; }
+</style>
+</head>
+<body>
+<h1>更新日10日以内チェックリスト</h1>
+<button id="copyBtn" onclick="copyEmails()">未送信のメアドをコピー</button>
+<div id="loading">読み込み中...</div>
+<div id="list"></div>
+
+<script>
+const API_URL = 'ここに①でコピーしたウェブアプリURLを貼る';
+
+let targets = [];
+
+async function loadList() {
+  document.getElementById('loading').style.display = 'block';
+  try {
+    const res = await fetch(`${API_URL}?action=list`);
+    const data = await res.json();
+    targets = data.targets || [];
+    render();
+  } catch (err) {
+    document.getElementById('loading').textContent = '読み込み失敗: ' + err;
+  }
+}
+
+function render() {
+  document.getElementById('loading').style.display = 'none';
+  const listEl = document.getElementById('list');
+  if (targets.length === 0) {
+    listEl.innerHTML = '<div id="empty">対象者はいません</div>';
+    return;
+  }
+  listEl.innerHTML = targets.map(t => `
+    <div class="card ${t.daysLeft <= 3 ? 'urgent' : ''} ${t.sent ? 'done' : ''}">
+      <input type="checkbox" ${t.sent ? 'checked' : ''} onchange="toggleSent('${t.email}', this.checked)">
+      <div class="info">
+        <div class="name">${t.name}(${t.genjina})</div>
+        <div class="sub">${t.area} / 更新日: ${t.renewalDate}(あと${t.daysLeft}日)</div>
+        <div class="email">${t.email}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function toggleSent(email, sent) {
+  await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'markSent', email, sent })
+  });
+  const t = targets.find(x => x.email === email);
+  if (t) t.sent = sent;
+  render();
+}
+
+function copyEmails() {
+  const emails = targets.filter(t => !t.sent).map(t => t.email).join(', ');
+  navigator.clipboard.writeText(emails).then(() => {
+    document.getElementById('copyBtn').textContent = 'コピーした!';
+    setTimeout(() => { document.getElementById('copyBtn').textContent = '未送信のメアドをコピー'; }, 1500);
+  });
+}
+
+loadList();
+</script>
+</body>
+</html>
