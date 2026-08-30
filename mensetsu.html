@@ -46,10 +46,12 @@
 </head>
 <body>
   <h1>面接 → デビュー 移動ツール</h1>
+  <a href="./teitop.html" style="display:inline-block;margin-bottom:12px;font-size:13px;color:#1e5aa8;text-decoration:none;">← 一覧に戻る</a>
 
   <div class="tabs">
     <div class="tab active" id="tabMove" onclick="switchTab('move')">デビュー登録</div>
     <div class="tab" id="tabAdd" onclick="switchTab('add')">面接を追加</div>
+    <div class="tab" id="tabEdit" onclick="switchTab('edit')">面接を編集</div>
   </div>
 
   <!-- ============ デビュー登録パネル ============ -->
@@ -88,6 +90,22 @@
     </div>
   </div>
 
+  <!-- ============ 面接編集パネル ============ -->
+  <div class="panel" id="panelEdit">
+    <div class="card">
+      <a class="reload" onclick="loadInterviews()">🔄 リストを更新</a>
+      <label>編集する面接を選ぶ</label>
+      <select id="editSelect" onchange="onSelectEdit()">
+        <option value="">-- 選択してください --</option>
+      </select>
+
+      <div id="editFieldsBox"></div>
+
+      <button id="updateBtn" onclick="submitUpdate()" disabled>この内容で更新する</button>
+      <div id="status3"></div>
+    </div>
+  </div>
+
   <script>
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbxnk8l4W9RBL8BrtI3Fnm6SSMC12pXXH3TN-Su0-CifbYFop2Ng9FZzt8m9cQbMs0Qz/exec';
     let interviewsCache = [];
@@ -96,8 +114,10 @@
     function switchTab(name) {
       document.getElementById('tabMove').classList.toggle('active', name === 'move');
       document.getElementById('tabAdd').classList.toggle('active', name === 'add');
+      document.getElementById('tabEdit').classList.toggle('active', name === 'edit');
       document.getElementById('panelMove').classList.toggle('active', name === 'move');
       document.getElementById('panelAdd').classList.toggle('active', name === 'add');
+      document.getElementById('panelEdit').classList.toggle('active', name === 'edit');
     }
 
     function callApi(action, extra) {
@@ -112,7 +132,8 @@
             .withFailureHandler(err => resolve({ ok: false, error: err.message }));
           if (action === 'listInterviews') handler.listInterviews_run();
           else if (action === 'addInterview') handler.addInterview_run(extra.data);
-          else if (action === 'registerDebut') handler.registerDebut_run(extra.row, extra.data);
+          else if (action === 'updateInterview') handler.updateInterview_run(extra.row, extra.data);
+        else if (action === 'registerDebut') handler.registerDebut_run(extra.row, extra.data);
         });
       }
     }
@@ -129,13 +150,19 @@
         if (!res.ok) { setStatus('status1', 'エラー: ' + res.error, false); return; }
         interviewsCache = res.result.rows;
         extraFields = res.result.extraFields;
+
         const sel = document.getElementById('interviewSelect');
+        const editSel = document.getElementById('editSelect');
         sel.innerHTML = '<option value="">-- 選択してください --</option>';
+        editSel.innerHTML = '<option value="">-- 選択してください --</option>';
         interviewsCache.forEach(row => {
-          const opt = document.createElement('option');
-          opt.value = row._row;
-          opt.textContent = `${row['面接日'] || ''} / ${row['所属'] || ''} / ${row['応募者'] || ''}`;
-          sel.appendChild(opt);
+          const label = `${row['面接日'] || ''} / ${row['所属'] || ''} / ${row['応募者'] || ''}`;
+          const opt1 = document.createElement('option');
+          opt1.value = row._row; opt1.textContent = label;
+          sel.appendChild(opt1);
+          const opt2 = document.createElement('option');
+          opt2.value = row._row; opt2.textContent = label;
+          editSel.appendChild(opt2);
         });
         setStatus('status1', '', true);
       });
@@ -225,6 +252,52 @@
         } else {
           setStatus('status2', 'エラー: ' + res.error, false);
         }
+      });
+    }
+
+    const EDIT_FIELD_NAMES = ['面接日', '所属', '時間', '面接担当者', '応募者'];
+
+    function onSelectEdit() {
+      const row = document.getElementById('editSelect').value;
+      const box = document.getElementById('editFieldsBox');
+      const btn = document.getElementById('updateBtn');
+
+      if (!row) {
+        box.innerHTML = '';
+        btn.disabled = true;
+        return;
+      }
+
+      const data = interviewsCache.find(r => String(r._row) === String(row));
+      box.innerHTML = '';
+      EDIT_FIELD_NAMES.forEach(name => {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = `<label>${name}</label><input id="edit_${name}" value="${(data[name] || '').replace(/"/g, '&quot;')}">`;
+        box.appendChild(wrap);
+      });
+      btn.disabled = false;
+    }
+
+    function submitUpdate() {
+      const row = document.getElementById('editSelect').value;
+      if (!row) return;
+      const data = {};
+      EDIT_FIELD_NAMES.forEach(name => {
+        data[name] = document.getElementById('edit_' + name).value.trim();
+      });
+
+      const btn = document.getElementById('updateBtn');
+      btn.disabled = true;
+      setStatus('status3', '更新中...', true);
+
+      callApi('updateInterview', { row: Number(row), data: data }).then(res => {
+        if (res.ok) {
+          setStatus('status3', '更新したよ!', true);
+          loadInterviews();
+        } else {
+          setStatus('status3', 'エラー: ' + res.error, false);
+        }
+        btn.disabled = false;
       });
     }
 
