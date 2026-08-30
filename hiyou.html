@@ -118,12 +118,26 @@
         </div>
       `;
 
+      let amountMap = {};
+      callApi('amounts').then(res => {
+        if (res.ok) amountMap = res.result;
+      });
+
       callApi('types', { storeId: storeId }).then(res => {
         const sel = document.getElementById('expenseType');
         const types = res.ok ? res.result : [];
         sel.innerHTML = types.length
           ? types.map(t => `<option value="${t}">${t}</option>`).join('')
           : '<option value="">(プルダウンが見つかりません。手入力してください)</option>';
+
+        sel.onchange = () => {
+          const amt = amountMap[sel.value];
+          if (amt) document.getElementById('uriage').value = amt;
+        };
+        // 初期表示分もセット
+        if (sel.value && amountMap[sel.value]) {
+          document.getElementById('uriage').value = amountMap[sel.value];
+        }
       });
     }
 
