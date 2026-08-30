@@ -118,6 +118,12 @@
   <!-- 集計タブ -->
   <div id="paneAgg" style="display:none;">
     <div class="card">
+      <label>集計モード</label>
+      <div class="tabs" style="margin-bottom:10px;">
+        <button id="modeCast" class="active" onclick="setMode('cast')">セラピスト別</button>
+        <button id="modeDay" onclick="setMode('day')">日毎</button>
+        <button id="modeMonth" onclick="setMode('month')">月ごと</button>
+      </div>
       <div class="head-inputs">
         <div><label>開始 (例 7/1)</label><input id="dateFrom" placeholder="7/1"></div>
         <div><label>終了 (例 7/31)</label><input id="dateTo" placeholder="7/31"></div>
@@ -128,7 +134,7 @@
   </div>
 
   <script>
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxQCA73By2joXzDDDnGQgwOk8tXB_Lghk6epIRXhja7NxMhaCyqi8FqOcVnwfcXHREK/exec'; // ← デプロイ後のURL
+    const GAS_URL = 'ここにWebアプリのURLを貼る'; // ← デプロイ後のURL
 
     let imgList = [];
     let parsed = null; // {receipts:[...]}
@@ -233,7 +239,7 @@
             <div><label>客名</label><input value="${esc(r.customer)}" oninput="parsed.receipts[${ri}].customer=this.value"></div>
           </div>
           <table>
-            <tr><th>品名</th><th>キャスト</th><th>数</th><th>金額</th><th></th></tr>
+            <tr><th>品名</th><th>セラピスト</th><th>数</th><th>金額</th><th></th></tr>
             <tbody id="items-${ri}"></tbody>
           </table>
           <button class="sub" onclick="addItem(${ri})">＋ 行を追加</button>
@@ -309,23 +315,41 @@
         });
     }
 
+    // ---- 集計 ----
+    let aggMode = 'cast';
+    function setMode(m) {
+      aggMode = m;
+      document.getElementById('modeCast').className = m === 'cast' ? 'active' : '';
+      document.getElementById('modeDay').className = m === 'day' ? 'active' : '';
+      document.getElementById('modeMonth').className = m === 'month' ? 'active' : '';
+    }
+
     function runAgg() {
       const wrap = document.getElementById('aggResult');
       wrap.innerHTML = '<div class="card">集計中...</div>';
       callApi({
         action: 'agg',
+        mode: aggMode,
         dateFrom: document.getElementById('dateFrom').value.trim(),
         dateTo: document.getElementById('dateTo').value.trim()
       })
         .then(res => {
-          let html = '<div class="card"><h2>キャスト別集計</h2>';
-          const casts = Object.keys(res.byCast).sort((a, b) => res.byCast[b].amount - res.byCast[a].amount);
-          if (!casts.length) html += '<div>データなし</div>';
-          casts.forEach(c => {
-            const d = res.byCast[c];
-            html += `<div class="agg-cast">${esc(c)}: ${d.amount.toLocaleString()}円 (${d.count}点)</div>`;
-            Object.keys(d.items).forEach(n => {
-              html += `<div class="agg-item">${esc(n)} × ${d.items[n]}</div>`;
+          const title = { cast: 'セラピスト別集計', day: '日毎集計', month: '月ごと集計' }[res.mode];
+          let html = '<div class="card"><h2>' + title + '</h2>';
+          let keys = Object.keys(res.groups);
+          if (res.mode === 'cast') {
+            keys.sort((a, b) => res.groups[b].amount - res.groups[a].amount); // 金額順
+          } else {
+            keys.sort((a, b) => dateSortKey(a) - dateSortKey(b)); // 日付順
+          }
+          if (!keys.length) html += '<div>データなし</div>';
+          keys.forEach(k => {
+            const g = res.groups[k];
+            const label = (k === '(担当なし)') ? '(セラピストなし)' : k;
+            html += `<div class="agg-cast">${esc(label)}: ${g.amount.toLocaleString()}円 (${g.count}点)</div>`;
+            Object.keys(g.sub).forEach(s => {
+              const sLabel = (s === '(担当なし)') ? '(セラピストなし)' : s;
+              html += `<div class="agg-item">${esc(sLabel)}: ${g.sub[s].amount.toLocaleString()}円 (${g.sub[s].count}点)</div>`;
             });
           });
           html += `<div class="agg-cast" style="border-top:1px solid rgba(212,175,106,.3);padding-top:10px;margin-top:12px;">総合計: ${res.grandTotal.toLocaleString()}円</div></div>`;
@@ -334,6 +358,11 @@
         .catch(err => {
           wrap.innerHTML = `<div class="card ng">エラー: ${esc(err.message)}</div>`;
         });
+    }
+
+    function dateSortKey(s) {
+      const m = String(s).match(/(\d+)(?:\s*\/\s*(\d+))?/);
+      return m ? Number(m[1]) * 100 + Number(m[2] || 0) : 0;
     }
 
     function esc(s) {
