@@ -38,7 +38,6 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxiKpicxNWuLdDJQ5jW8p1z
 
 let targets = [];
 
-// JSONPでリスト取得(scriptタグ方式なのでCORSにひっかからない)
 function loadList() {
   document.getElementById('loading').style.display = 'block';
   const script = document.createElement('script');
@@ -49,7 +48,6 @@ function loadList() {
   document.body.appendChild(script);
 }
 
-// GAS側から呼ばれるコールバック関数
 function handleList(data) {
   targets = data.targets || [];
   render();
@@ -74,7 +72,6 @@ function render() {
   `).join('');
 }
 
-// チェック状態の更新もGET+JSONPで送る(レスポンスは特に使わない、fire-and-forget)
 function toggleSent(email, sent) {
   const script = document.createElement('script');
   script.src = `${API_URL}?action=markSent&email=${encodeURIComponent(email)}&sent=${sent}&callback=noop`;
