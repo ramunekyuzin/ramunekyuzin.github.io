@@ -38,16 +38,21 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxiKpicxNWuLdDJQ5jW8p1z
 
 let targets = [];
 
-async function loadList() {
+// JSONPでリスト取得(scriptタグ方式なのでCORSにひっかからない)
+function loadList() {
   document.getElementById('loading').style.display = 'block';
-  try {
-    const res = await fetch(`${API_URL}?action=list`);
-    const data = await res.json();
-    targets = data.targets || [];
-    render();
-  } catch (err) {
-    document.getElementById('loading').textContent = '読み込み失敗: ' + err;
-  }
+  const script = document.createElement('script');
+  script.src = `${API_URL}?action=list&callback=handleList`;
+  script.onerror = () => {
+    document.getElementById('loading').textContent = '読み込み失敗(通信エラー)';
+  };
+  document.body.appendChild(script);
+}
+
+// GAS側から呼ばれるコールバック関数
+function handleList(data) {
+  targets = data.targets || [];
+  render();
 }
 
 function render() {
@@ -69,16 +74,17 @@ function render() {
   `).join('');
 }
 
-async function toggleSent(email, sent) {
-  await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'markSent', email, sent })
-  });
+// チェック状態の更新もGET+JSONPで送る(レスポンスは特に使わない、fire-and-forget)
+function toggleSent(email, sent) {
+  const script = document.createElement('script');
+  script.src = `${API_URL}?action=markSent&email=${encodeURIComponent(email)}&sent=${sent}&callback=noop`;
+  document.body.appendChild(script);
   const t = targets.find(x => x.email === email);
   if (t) t.sent = sent;
   render();
 }
+
+function noop() {}
 
 function copyEmails() {
   const emails = targets.filter(t => !t.sent).map(t => t.email).join(', ');
