@@ -144,16 +144,11 @@
     <label>送信者名(内勤名)</label>
     <input type="text" id="sender" value="篠原">
 
-    <div class="row2">
-      <div>
-        <label>合計ポイント</label>
-        <input type="text" id="totalPt" placeholder="0" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-      </div>
-      <div>
-        <label>応援ポイント</label>
-        <input type="text" id="ouenPt" placeholder="0" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-      </div>
-    </div>
+    <label>合計ポイント</label>
+    <input type="text" id="totalPt" placeholder="0" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+
+    <label>応援pt除く</label>
+    <input type="text" id="excludePt" placeholder="0" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
 
     <div class="toggle-row">
       <span>本部からの支給ラインを入れる</span>
@@ -164,13 +159,20 @@
     </div>
 
     <div id="honbuPtWrap">
-      <label>本部支給ポイント</label>
+      <label>本部支給ポイント(注記行にのみ使用)</label>
       <input type="text" id="honbuPt" placeholder="0" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
     </div>
 
     <div class="calc-preview">
       <div class="calc-box">
-        <div class="label">ボーナス円(本部pt優先/なければ(合計-応援)×1,000)</div>
+        <div class="label">応援pt(合計−応援pt除く)</div>
+        <div class="value" id="ouenView">0</div>
+      </div>
+    </div>
+
+    <div class="calc-preview">
+      <div class="calc-box">
+        <div class="label">ボーナス円((合計-応援)×1,000)</div>
         <div class="value" id="bonusView">¥0</div>
       </div>
       <div class="calc-box">
@@ -193,13 +195,14 @@
   const ymEl = document.getElementById('yearMonth');
   const senderEl = document.getElementById('sender');
   const totalEl = document.getElementById('totalPt');
-  const ouenEl = document.getElementById('ouenPt');
+  const excludeEl = document.getElementById('excludePt');
   const honbuEl = document.getElementById('honbuToggle');
   const honbuPtEl = document.getElementById('honbuPt');
   const honbuPtWrap = document.getElementById('honbuPtWrap');
   const outputEl = document.getElementById('output');
   const bonusView = document.getElementById('bonusView');
   const coinView = document.getElementById('coinView');
+  const ouenView = document.getElementById('ouenView');
 
   // 年月自動取得(今月度)
   const now = new Date();
@@ -214,15 +217,15 @@
     const sender = senderEl.value.trim() || '篠原';
     const ym = ymEl.value.trim();
     const total = Number(totalEl.value.replace(/[^0-9]/g, '')) || 0;
-    const ouen = Number(ouenEl.value.replace(/[^0-9]/g, '')) || 0;
+    const excludePt = Number(excludeEl.value.replace(/[^0-9]/g, '')) || 0;
     const honbuPt = Number(honbuPtEl.value.replace(/[^0-9]/g, '')) || 0;
-    const bonus = (honbuEl.checked && honbuPt > 0)
-      ? honbuPt * 1000
-      : (total - ouen) * 1000;
+    const ouen = Math.max(total - excludePt, 0);
+    const bonus = (total - ouen) * 1000;
     const coin = Math.round(bonus / 2);
 
     bonusView.textContent = '¥' + fmt(bonus);
     coinView.textContent = fmt(coin);
+    ouenView.textContent = fmt(ouen);
 
     honbuPtWrap.style.display = honbuEl.checked ? 'block' : 'none';
 
@@ -240,7 +243,7 @@
     outputEl.value = text;
   }
 
-  [nameEl, ymEl, senderEl, totalEl, ouenEl, honbuEl, honbuPtEl].forEach(el => {
+  [nameEl, ymEl, senderEl, totalEl, excludeEl, honbuEl, honbuPtEl].forEach(el => {
     el.addEventListener('input', update);
     el.addEventListener('change', update);
   });
