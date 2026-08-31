@@ -170,7 +170,7 @@
 
     <div class="calc-preview">
       <div class="calc-box">
-        <div class="label">ボーナス円(pt×1,000)</div>
+        <div class="label">ボーナス円(本部pt優先/なければ(合計-応援)×1,000)</div>
         <div class="value" id="bonusView">¥0</div>
       </div>
       <div class="calc-box">
@@ -216,7 +216,9 @@
     const total = Number(totalEl.value.replace(/[^0-9]/g, '')) || 0;
     const ouen = Number(ouenEl.value.replace(/[^0-9]/g, '')) || 0;
     const honbuPt = Number(honbuPtEl.value.replace(/[^0-9]/g, '')) || 0;
-    const bonus = total * 1000;
+    const bonus = (honbuEl.checked && honbuPt > 0)
+      ? honbuPt * 1000
+      : (total - ouen) * 1000;
     const coin = Math.round(bonus / 2);
 
     bonusView.textContent = '¥' + fmt(bonus);
