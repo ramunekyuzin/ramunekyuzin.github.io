@@ -141,6 +141,9 @@
     <label>対象年月度</label>
     <input type="text" id="yearMonth">
 
+    <label>送信者名(内勤名)</label>
+    <input type="text" id="sender" value="篠原">
+
     <div class="row2">
       <div>
         <label>合計ポイント</label>
@@ -188,6 +191,7 @@
 <script>
   const nameEl = document.getElementById('name');
   const ymEl = document.getElementById('yearMonth');
+  const senderEl = document.getElementById('sender');
   const totalEl = document.getElementById('totalPt');
   const ouenEl = document.getElementById('ouenPt');
   const honbuEl = document.getElementById('honbuToggle');
@@ -207,6 +211,7 @@
 
   function update() {
     const name = nameEl.value.trim() || '〇〇';
+    const sender = senderEl.value.trim() || '篠原';
     const ym = ymEl.value.trim();
     const total = Number(totalEl.value.replace(/[^0-9]/g, '')) || 0;
     const ouen = Number(ouenEl.value.replace(/[^0-9]/g, '')) || 0;
@@ -220,24 +225,20 @@
     honbuPtWrap.style.display = honbuEl.checked ? 'block' : 'none';
 
     const honbuLine = honbuEl.checked
-      ? `※本部からの支給は${fmt(honbuPt)}ポイントになります。\n`
+      ? `\n※本部からの支給は${fmt(honbuPt)}ポイントになります。`
       : '';
 
-    const text =
-`${name}様
-いつもセラピスト活動おつかれさまです。
-帝事務局の篠原です。
-${ym}、帝ランキングへの入賞おめでとうございます。
-今回のポイントは（応援${fmt(ouen)}ポイント）${fmt(total)}ポイントです。
-${honbuLine}ボーナス${fmt(bonus)}円については他の報酬分から相殺して振り込み必ず詳細メールを送信下さい。
-月中に相殺できない場合はこちらから振り込みますのでご連絡ください。
-また、同時に帝コイン${fmt(coin)}コインを進呈します。
-こちらは追加研修や検査キット、備品の購入代として利用可能です。`;
+    const block1 = `${name}様\nいつもセラピスト活動おつかれさまです。\n帝事務局の${sender}です。`;
+    const block2 = `${ym}、帝ランキングへの入賞おめでとうございます。\n今回のポイントは${fmt(total)}（応援${fmt(ouen)}）ポイントです。${honbuLine}`;
+    const block3 = `ボーナス[${fmt(bonus)}]円については他の報酬分から相殺して振り込み必ず詳細メールを送信下さい。\n月中に相殺できない場合はこちらから振り込みますのでご連絡ください。`;
+    const block4 = `また、同時に帝コイン[${fmt(coin)}]コインを進呈します。\nこちらは追加研修や検査キット、備品の購入代として利用可能です。`;
+
+    const text = [block1, block2, block3, block4].join('\n\n');
 
     outputEl.value = text;
   }
 
-  [nameEl, ymEl, totalEl, ouenEl, honbuEl, honbuPtEl].forEach(el => {
+  [nameEl, ymEl, senderEl, totalEl, ouenEl, honbuEl, honbuPtEl].forEach(el => {
     el.addEventListener('input', update);
     el.addEventListener('change', update);
   });
