@@ -144,11 +144,11 @@
     <div class="row2">
       <div>
         <label>合計ポイント</label>
-        <input type="number" id="totalPt" placeholder="0" inputmode="numeric">
+        <input type="text" id="totalPt" placeholder="0" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
       </div>
       <div>
         <label>応援ポイント</label>
-        <input type="number" id="ouenPt" placeholder="0" inputmode="numeric">
+        <input type="text" id="ouenPt" placeholder="0" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
       </div>
     </div>
 
@@ -158,6 +158,11 @@
         <input type="checkbox" id="honbuToggle" checked>
         <span class="slider"></span>
       </label>
+    </div>
+
+    <div id="honbuPtWrap">
+      <label>本部支給ポイント</label>
+      <input type="text" id="honbuPt" placeholder="0" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
     </div>
 
     <div class="calc-preview">
@@ -186,6 +191,8 @@
   const totalEl = document.getElementById('totalPt');
   const ouenEl = document.getElementById('ouenPt');
   const honbuEl = document.getElementById('honbuToggle');
+  const honbuPtEl = document.getElementById('honbuPt');
+  const honbuPtWrap = document.getElementById('honbuPtWrap');
   const outputEl = document.getElementById('output');
   const bonusView = document.getElementById('bonusView');
   const coinView = document.getElementById('coinView');
@@ -201,15 +208,20 @@
   function update() {
     const name = nameEl.value.trim() || '〇〇';
     const ym = ymEl.value.trim();
-    const total = Number(totalEl.value) || 0;
-    const ouen = Number(ouenEl.value) || 0;
+    const total = Number(totalEl.value.replace(/[^0-9]/g, '')) || 0;
+    const ouen = Number(ouenEl.value.replace(/[^0-9]/g, '')) || 0;
+    const honbuPt = Number(honbuPtEl.value.replace(/[^0-9]/g, '')) || 0;
     const bonus = total * 1000;
     const coin = Math.round(bonus / 2);
 
     bonusView.textContent = '¥' + fmt(bonus);
     coinView.textContent = fmt(coin);
 
-    const honbuLine = honbuEl.checked ? '※本部からの支給はポイントになります。\n' : '';
+    honbuPtWrap.style.display = honbuEl.checked ? 'block' : 'none';
+
+    const honbuLine = honbuEl.checked
+      ? `※本部からの支給は${fmt(honbuPt)}ポイントになります。\n`
+      : '';
 
     const text =
 `${name}様
@@ -225,7 +237,7 @@ ${honbuLine}ボーナス${fmt(bonus)}円については他の報酬分から相�
     outputEl.value = text;
   }
 
-  [nameEl, ymEl, totalEl, ouenEl, honbuEl].forEach(el => {
+  [nameEl, ymEl, totalEl, ouenEl, honbuEl, honbuPtEl].forEach(el => {
     el.addEventListener('input', update);
     el.addEventListener('change', update);
   });
